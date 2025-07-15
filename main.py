@@ -77,6 +77,10 @@ async def ping(ctx):
 @bot.command(help="Wrong bot, check out the one literally called Chat Revival Bot")
 async def revive(ctx):
     await ctx.send("Sorry but I won't steal the jobs of my fellow bots, unless it's RNGesus, screw that guy.")
+    
+@bot.command(help="IS THAT A SURVIV REFERENCE??")
+async def reviv(ctx):
+    await ctx.send("Not only did you make a typo, but you also used the wrong prefix, AND you also referenced Surviv.")
 
 @bot.command(help="yvlis")
 async def mango(ctx):
