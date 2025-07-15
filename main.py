@@ -168,6 +168,34 @@ async def snipe(ctx):
     else:
         await ctx.send("There's nothing to snipe, stop being paranoid lmao")
 
+@bot.command(help="Who'll be 'pinged' this time?")
+async def pingroulette(ctx):
+    options = [
+        ("ping ping tolerance level 4", ":gamma_brilliant:"),
+        ("don't ping", ":hyper_brilliant:"),
+        ("ping myself", ":super_brilliant:"),
+        ("ping kan", ":brilliant:"),
+        ("ping blundy", ":great:"),
+        ("ping kk", ":excellent:"),
+        ("ping tampy", ":good:"),
+        ("ping silvy", ":inaccuracy:"),
+        ("ping erix", ":mistake:"),
+        ("ping no one", ":blunder:"),
+        ("Ping Amg.", ":super_blunder:"),
+        ("ping here", ":hyper_blunder:"),
+        ("ping everyone", ":gamma_blunder:"),
+        ("cheeseburger", "🍔")
+    ]
+
+    label, emoji = random.choice(options)
+
+    # First message (RNGesus style)
+    await ctx.send(f":game_die: {label} {emoji}")
+
+    # Second message (Dyno fake ping style)
+    fake_ping = "@\u200b(the Dragonrose man)"
+    await ctx.send(fake_ping)
+
 # ---------------------------
 # Run bot
 # ---------------------------
