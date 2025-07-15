@@ -193,7 +193,7 @@ async def pingroulette(ctx):
     await ctx.send(f":game_die: {label} {emoji}")
 
     # Second message (Dyno fake ping style)
-    fake_ping = "@\u200b(the Dragonrose man)"
+    fake_ping = "@\u200b{label}"
     await ctx.send(fake_ping)
 
 # ---------------------------
