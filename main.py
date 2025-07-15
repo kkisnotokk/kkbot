@@ -171,19 +171,19 @@ async def snipe(ctx):
 @bot.command(help="Who'll be 'pinged' this time?")
 async def pingroulette(ctx):
     options = [
-        ("ping ping tolerance level 4", ":gamma_brilliant:"),
-        ("don't ping", ":hyper_brilliant:"),
-        ("ping myself", ":super_brilliant:"),
-        ("ping kan", ":brilliant:"),
-        ("ping blundy", ":great:"),
-        ("ping kk", ":excellent:"),
-        ("ping tampy", ":good:"),
-        ("ping silvy", ":inaccuracy:"),
-        ("ping erix", ":mistake:"),
-        ("ping no one", ":blunder:"),
-        ("Ping Amg.", ":super_blunder:"),
-        ("ping here", ":hyper_blunder:"),
-        ("ping everyone", ":gamma_blunder:"),
+        ("ping ping tolerance level 4", "<:gamma_brilliant:1363827439146635376>"),
+        ("don't ping", "<:hyper_brilliant:1363720885244006533>"),
+        ("ping myself", "<:super_brilliant:1363720901702451270>"),
+        ("ping kan", "<:brilliant:1363720913253699615>"),
+        ("ping blundy", "<:great:1363720926264557709>"),
+        ("ping kk", "<:excellent:1363720953217024031>"),
+        ("ping tampy", "<:good:1363720964810080316>"),
+        ("ping silvy", "<:inaccuracy:1363721001774612621>"),
+        ("ping erix", "<:mistake:1363721029377327294>"),
+        ("ping no one", "<:blunder:1363721040890560572>"),
+        ("Ping Amg.", "<:super_blunder:1363721054949998792>"),
+        ("ping here", "<:hyper_blunder:1363721067893358675>"),
+        ("ping everyone", "<:gamma_blunder:1363728794019696701>"),
         ("cheeseburger", "🍔")
     ]
 
