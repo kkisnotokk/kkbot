@@ -86,7 +86,7 @@ async def mango(ctx):
 async def lemon(ctx):
     await ctx.send("🥭")
 
-@bot.command(help="Plays a fruit-themed slot machine")
+@bot.command(help="99% OF GAMBLERS QUIT BEFORE THEY HIT BIG")
 async def gamble(ctx):
     symbols = ["🥭", "🍋", "🥝", "0️⃣", "💀", "⭐", "7️⃣"]
     result = [random.choice(symbols) for _ in range(3)]
