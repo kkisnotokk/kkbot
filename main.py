@@ -90,6 +90,10 @@ async def mango(ctx):
 async def lemon(ctx):
     await ctx.send("🥭")
 
+@bot.command(help="protect yourself from the demon that is vivid")
+async def vividsonline(ctx):
+    await ctx.send("DEMON BE GONE, IN THE NAME OF OUR HOLY LORD AND SAVIOR SILVIS MANGOSTEEN, I REPELL YOU DEMON, WITH THE POWER OF THE HOLY MANGO, YOU SHALL NOT PASS")
+
 @bot.command(help="99% OF GAMBLERS QUIT BEFORE THEY HIT BIG")
 async def gamble(ctx):
     symbols = ["🥭", "🍋", "🥝", "0️⃣", "💀", "⭐", "7️⃣"]
