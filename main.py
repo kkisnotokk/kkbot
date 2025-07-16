@@ -196,6 +196,45 @@ async def pingroulette(ctx):
     fake_ping = "@\u200b" + label
     await ctx.send(fake_ping)
 
+@bot.command(help="Ask the all-knowing 8-ball a question")
+async def eightball(ctx, *, question: str = None):
+    responses = [
+        "Yes.", "No.", "Maybe.", "Absolutely.", "Definitely not.",
+        "Ask again later.", "OUT OF ALL THE QUESTIONS YOU CAN ASK, YOU ASK THAT??",
+        "Without a doubt.", "I wouldn’t count on it.",
+        "99% sure it’s yes.", "Try again after touching grass."
+    ]
+
+    if not question:
+        await ctx.send("🎱 You need to ask a question. Example: `<8ball will i get pinged`")
+        return
+
+    answer = random.choice(responses)
+    await ctx.send(f"🎱 {answer}")
+
+@bot.command(help="Rates anything from 1/10 to 100/10")
+async def rate(ctx, *, thing: str = None):
+    if not thing:
+        await ctx.send("📊 Rate what? Example: `<rate Blundy's habit of reacting in the shadows.`")
+        return
+
+    score = random.choice(
+        list(range(1, 11)) + [69, 100, 0, -1, 404, 456]  # Spice it up
+    )
+    await ctx.send(f"📊 I'd rate **{thing}** a solid **{score}/10**")
+
+@bot.command(help="Mocks your sentence. Example: `<mock I am serious`")
+async def mock(ctx, *, text: str = None):
+    if not text:
+        await ctx.send("What do you want me to mock? Example: `<mock you always say that`")
+        return
+
+    mocked = ''.join(
+        c.upper() if i % 2 == 0 else c.lower()
+        for i, c in enumerate(text)
+    )
+    await ctx.send(f"{mocked}")
+
 # ---------------------------
 # Run bot
 # ---------------------------
