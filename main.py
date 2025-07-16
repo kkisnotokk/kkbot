@@ -89,6 +89,10 @@ async def mango(ctx):
 @bot.command(help="silvy")
 async def lemon(ctx):
     await ctx.send("🥭")
+    
+@bot.command(help="it's vivid")
+async def vivid(ctx):
+    await ctx.send("Holy shit is it time for another vividstory? I better make sure my kids don't see this.")
 
 @bot.command(help="99% OF GAMBLERS QUIT BEFORE THEY HIT BIG")
 async def gamble(ctx):
