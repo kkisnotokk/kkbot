@@ -189,11 +189,12 @@ async def pingroulette(ctx):
 
     label, emoji = random.choice(options)
 
-    # First message (RNGesus style)
+    # First message (RNGesus-style)
     await ctx.send(f":game_die: {label} {emoji}")
 
-    # Second message (Dyno fake ping style)
-    fake_ping = "@\u200b" + label
+    # Second message (Dyno-style fake ping)
+    fake_ping = f"@{label}".replace("ping ", "")  # strips "ping " to make it look like a name
+    fake_ping = "@" + "\u200b".join(fake_ping)     # Inserts zero-width space to prevent real ping
     await ctx.send(fake_ping)
 
 @bot.command(help="Ask the all-knowing 8-ball a question")
