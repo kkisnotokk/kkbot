@@ -94,6 +94,10 @@ async def lemon(ctx):
 async def vivid(ctx):
     await ctx.send("Holy shit is it time for another vividstory? I better make sure my kids don't see this.")
 
+@bot.command(help="nothing")
+async def nothing(ctx):
+    await ctx.send("")
+
 @bot.command(help="99% OF GAMBLERS QUIT BEFORE THEY HIT BIG")
 async def gamble(ctx):
     symbols = ["🥭", "🍋", "🥝", "0️⃣", "💀", "⭐", "7️⃣"]
