@@ -106,6 +106,10 @@ async def sniper(ctx):
 async def threesixtynoscope(ctx):
     await ctx.send("https://tenor.com/view/360noscope-gif-18161400")
 
+@bot.command(help="It's kk")
+async def kk(ctx):
+    await ctx.send("...is not okk")
+
 @bot.command(help="99% OF GAMBLERS QUIT BEFORE THEY HIT BIG")
 async def gamble(ctx):
     symbols = ["🥭", "🍋", "🥝", "0️⃣", "💀", "⭐", "7️⃣"]
