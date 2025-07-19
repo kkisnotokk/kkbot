@@ -103,7 +103,7 @@ async def sniper(ctx):
     await ctx.send("Yes hello I'm here what do you need?")
 
 @bot.command(help="Rick, clip that")
-async def 360noscopemlg(ctx):
+async def threesixtynoscope(ctx):
     await ctx.send("https://tenor.com/view/360noscope-gif-18161400")
 
 @bot.command(help="99% OF GAMBLERS QUIT BEFORE THEY HIT BIG")
