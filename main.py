@@ -128,6 +128,10 @@ async def gamble(ctx):
 
 @bot.command(help="Choose between words or roll a number (e.g. <roll 10 or <roll red, blue)")
 async def roll(ctx, *, args):
+    rigged = rigged_responses.pop(ctx.author.id, None)
+    if rigged:
+        await ctx.send(f"🎯 {rigged} *(rigged)*")
+        return
     async def replace_mentions(text):
         mention_pattern = r'<@!?(\d+)>'
 
@@ -174,13 +178,7 @@ async def roll(ctx, *, args):
             return
         except ValueError:
             pass
-
-        # Check for rigged response
-    if message.author.id in rigged_responses:
-        rigged_msg = rigged_responses.pop(message.author.id)
-        await message.channel.send(f"{rigged_msg} [RIGGED]")
-        return  # Skip running the actual command
-    
+            
     await ctx.send("❌ Usage:\n- `<roll 100` → random number from 1–100\n- `<roll red, blue, green` → pick from choices")
 
 @bot.command(help="Snipes the most recently deleted message in this channel")
@@ -226,11 +224,15 @@ async def pingroulette(ctx):
 
 @bot.command(help="Ask the all-knowing 8-ball a question")
 async def eightball(ctx, *, question: str = None):
+    rigged = rigged_responses.pop(ctx.author.id, None)
+    if rigged:
+        await ctx.send(f"🎯 {rigged} *(rigged)*")
+        return
     responses = [
-        "Yes.", "No.", "Maybe.", "Absolutely.", "Definitely not.",
+        "Yes.", "No.", "Maybe.", "Absolutely.", "Absolutely not.",
         "Ask again later.", "OUT OF ALL THE QUESTIONS YOU CAN ASK, YOU ASK THAT??",
         "Without a doubt.", "I wouldn’t count on it.",
-        "99% sure it’s yes.", "Try again after touching grass."
+        "99% sure it’s yes.", "Try again after touching grass.", "You really don't want me to answer that", "Idk ask Emilybot"
     ]
 
     if not question:
@@ -238,17 +240,16 @@ async def eightball(ctx, *, question: str = None):
         return
 
     answer = random.choice(responses)
-
-        # Check for rigged response
-    if message.author.id in rigged_responses:
-        rigged_msg = rigged_responses.pop(message.author.id)
-        await message.channel.send(f"{rigged_msg} [RIGGED]")
-        return  # Skip running the actual command
     
     await ctx.send(f"🎱 {answer}")
 
 @bot.command(help="Rates anything from 1/10 to 100/10")
 async def rate(ctx, *, thing: str = None):
+    rigged = rigged_responses.pop(ctx.author.id, None)
+    if rigged:
+        await ctx.send(f"🎯 {rigged} *(rigged)*")
+        return
+
     if not thing:
         await ctx.send("📊 Rate what? Example: `<rate Blundy's habit of reacting in the shadows.`")
         return
@@ -256,12 +257,6 @@ async def rate(ctx, *, thing: str = None):
     score = random.choice(
         list(range(1, 11)) + [69, 100, 0, -1, 404, 456]  # Spice it up
     )
-
-        # Check for rigged response
-    if message.author.id in rigged_responses:
-        rigged_msg = rigged_responses.pop(message.author.id)
-        await message.channel.send(f"{rigged_msg} [RIGGED]")
-        return  # Skip running the actual command
     
     await ctx.send(f"📊 I'd rate **{thing}** a solid **{score}/10**")
 
