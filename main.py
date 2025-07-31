@@ -22,6 +22,7 @@ bot = commands.Bot(
 )
 
 sniped_messages = {}
+rigged_responses = {}
 
 # ---------------------------
 # EVENTS
@@ -174,6 +175,12 @@ async def roll(ctx, *, args):
         except ValueError:
             pass
 
+        # Check for rigged response
+    if message.author.id in rigged_responses:
+        rigged_msg = rigged_responses.pop(message.author.id)
+        await message.channel.send(f"{rigged_msg} [RIGGED]")
+        return  # Skip running the actual command
+    
     await ctx.send("❌ Usage:\n- `<roll 100` → random number from 1–100\n- `<roll red, blue, green` → pick from choices")
 
 @bot.command(help="Snipes the most recently deleted message in this channel")
@@ -231,6 +238,13 @@ async def eightball(ctx, *, question: str = None):
         return
 
     answer = random.choice(responses)
+
+        # Check for rigged response
+    if message.author.id in rigged_responses:
+        rigged_msg = rigged_responses.pop(message.author.id)
+        await message.channel.send(f"{rigged_msg} [RIGGED]")
+        return  # Skip running the actual command
+    
     await ctx.send(f"🎱 {answer}")
 
 @bot.command(help="Rates anything from 1/10 to 100/10")
@@ -242,6 +256,13 @@ async def rate(ctx, *, thing: str = None):
     score = random.choice(
         list(range(1, 11)) + [69, 100, 0, -1, 404, 456]  # Spice it up
     )
+
+        # Check for rigged response
+    if message.author.id in rigged_responses:
+        rigged_msg = rigged_responses.pop(message.author.id)
+        await message.channel.send(f"{rigged_msg} [RIGGED]")
+        return  # Skip running the actual command
+    
     await ctx.send(f"📊 I'd rate **{thing}** a solid **{score}/10**")
 
 @bot.command(help="Mocks your sentence. Example: `<mock I am serious`")
@@ -255,6 +276,11 @@ async def mock(ctx, *, text: str = None):
         for i, c in enumerate(text)
     )
     await ctx.send(f"{mocked}")
+
+@bot.command(help="Rig the bot's next <roll, <eightball, or <rate response to say what you want.")
+async def rig(ctx, *, message: str):
+    rigged_responses[ctx.author.id] = message
+    await ctx.send(f":3 Your next command is rigged to say: `{message}`")
 
 # ---------------------------
 # Run bot
