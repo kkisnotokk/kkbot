@@ -61,6 +61,18 @@ for filename in os.listdir(COMMANDS_FOLDER):
         except Exception as e:
             print(f"❌ Failed to load {full_module}: {e}")
 
+@bot.command(help="Snipes the most recently deleted message in this channel")
+async def snipe(ctx):
+    snipe_data = sniped_messages.get(ctx.channel.id)
+
+    if snipe_data:
+        time_diff = (discord.utils.utcnow() - snipe_data["time"]).seconds
+        await ctx.send(
+            f"Deleted message by **{snipe_data['author']}** ({time_diff} seconds ago):\n> {snipe_data['content']}"
+        )
+    else:
+        await ctx.send("There's nothing to snipe, stop being paranoid lmao")
+
 TOKEN = os.getenv("TOKEN")
 if TOKEN:
     bot.run(TOKEN)
