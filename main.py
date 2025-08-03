@@ -223,7 +223,7 @@ async def pingroulette(ctx):
     await ctx.send(fake_ping)
 
 @bot.command(help="Ask the all-knowing 8-ball a question")
-async def 8ball(ctx, *, question: str = None):
+async def eightball(ctx, *, question: str = None):
     rigged = rigged_responses.pop(ctx.author.id, None)
     if rigged:
         await ctx.send(f"❌ {rigged}")
