@@ -3,9 +3,9 @@ from discord.utils import escape_mentions, escape_markdown
 from main import rigged_responses
 import random
 
-@commands.command(help="Ask the all-knowing 8-ball a question")
-async def eightball(ctx, *, question: str): # if question is empty its automatically translated to False
-    
+@commands.command(name="eightball", aliases=["8ball"], help="Ask the all-knowing 8-ball a question")
+async def eightball(ctx, *, question: str = None):  # Add = None for safety
+
     responses = [
         "Yes.", "No.", "Maybe.", "Absolutely.", "Absolutely not.",
         "Ask again later.", "OUT OF ALL THE QUESTIONS YOU CAN ASK, YOU ASK THAT?",
