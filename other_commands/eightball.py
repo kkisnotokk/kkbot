@@ -18,7 +18,7 @@ async def eightball(ctx, *, question: str): # if question is empty its automatic
         "Idk ask Emilybot.", "All will be clear soon, wait, no it won't I lied you're cooked.",
         f"It's ggs {ctx.author.name}, you know the answer.", "Er uh you don't need to know that.",
         "I am not answering that.", "Shut up I'm busy getting drunk.",
-        "@kk there's been an error, I think I ran out of shits to give."
+        "@kk there's been an error, I think I ran out of shits to give.", "(Sponsored) We are sorry to interupt this command but we must inform you of the hot new bot on the market— @IBM!! You should use '@IBM coin' and try it now!!"
     ]
 
     if not question:
