@@ -100,11 +100,20 @@ async def rig(ctx, *, message: str):
     rigged_responses[ctx.author.id] = message
     await ctx.send(f"✅ Your next response has been rigged to: `{message}`")
 
-@bot.listen("on_command")
-async def intercept_commands(ctx):
-    # Ignore if this command is the rig command
-    if ctx.command.name == "rig":
+@bot.listen('on_message')
+async def intercept_and_rig(message):
+    if message.author.bot:
         return
+
+    ctx = await bot.get_context(message)
+
+    # If the user is rigged...
+    if ctx.valid and message.author.id in rigged_responses:
+        response = rigged_responses.pop(message.author.id)
+        await message.channel.send(response)
+        return  # Don't process the original command
+
+    await bot.process_commands(message)
 
     user_id = ctx.author.id
     if user_id in rigged_responses:
