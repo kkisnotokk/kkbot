@@ -74,7 +74,7 @@ for filename in os.listdir(COMMANDS_FOLDER):
         module_name = filename[:-3]
         full_module = f"{COMMANDS_FOLDER}.{module_name}"
         try:
-            importlib.import_module(full_module).setup(bot)
+            bot.load_extension(full_module)  # Cog loading??
             print(f"✅ Loaded: {full_module}")
         except Exception as e:
             print(f"❌ Failed to load {full_module}: {e}")
