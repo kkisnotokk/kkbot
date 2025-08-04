@@ -130,7 +130,7 @@ async def gamble(ctx):
 async def roll(ctx, *, args):
     rigged = rigged_responses.pop(ctx.author.id, None)
     if rigged:
-        await ctx.send(f"🎯 {rigged} *(rigged)*")
+        await ctx.send(f"🎯 {rigged}")
         return
 
     async def replace_mentions(text):
@@ -227,13 +227,17 @@ async def pingroulette(ctx):
 async def eightball(ctx, *, question: str = None):
     rigged = rigged_responses.pop(ctx.author.id, None)
     if rigged:
-        await ctx.send(f"🎯 {rigged} *(rigged)*")
+        await ctx.send(f"🎯 {rigged}")
         return
-    responses = [
-        "Yes.", "No.", "Maybe.", "Absolutely.", "Definitely not.",
-        "Ask again later.", "OUT OF ALL THE QUESTIONS YOU CAN ASK, YOU ASK THAT??",
+        responses = [
+        "Maybe.", "Absolutely.", "Absolutely not.",
+        "Ask again in exactly 69.42 seconds.", "You have better things to worry about :3 (you don't wanna know)",
         "Without a doubt.", "I wouldn’t count on it.",
-        "99% sure it’s yes.", "Try again after touching grass."
+        "I'm tired of your dumb questions, go ask Emilybot.", "Try again after touching grass.", "You really don't want me to answer that",
+        "Idk ask Emilybot.", "All will be clear soon, wait, no it won't I lied you're cooked.",
+        f"It's ggs {ctx.author.name}, you know the answer.", "Er uh you don't need to know that.",
+        "I am not answering that.", "Shut up I'm busy getting drunk.",
+        "@kk there's been an error, I think I ran out of shits to give.", "(Sponsored) We are sorry to interupt this command but we must inform you of the hot new bot on the market— @IBM!! You should use '@IBM coin' and try it now!!"
     ]
 
     if not question:
@@ -248,7 +252,7 @@ async def eightball(ctx, *, question: str = None):
 async def rate(ctx, *, thing: str = None):
     rigged = rigged_responses.pop(ctx.author.id, None)
     if rigged:
-        await ctx.send(f"🎯 {rigged} *(rigged)*")
+        await ctx.send(f"🎯 {rigged}")
         return
 
     if not thing:
