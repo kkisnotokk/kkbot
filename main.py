@@ -28,20 +28,20 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
+    # Ignore messages from your own bot
     if message.author.id == bot.user.id:
         return
 
-    # Detect <eightball from other bots
+    # Check for ANY bot sending <eightball
     if message.author.bot and message.content.lower().startswith("<eightball"):
         response = random.choice([
-        ".8ball Nah you got that.", "wtf I was not ready for this uhh yes?", "Why is a bot using <eightball— oh it's emilybot isn't it?",
-        "Uhhh ask IBM", "(Sponsored) We are sorry to interupt this command but we must inform you of the hot new bot on the market— @IBM!! You should use '@IBM coin' and try it now!!",
-        "No fuck off."
+            ".8ball Nah you got that.", "wtf I was not ready for this uhh yes?", "Why is a bot using <eightball— oh it's emilybot isn't it?", "Uhhh ask IBM",
+            "(Sponsored) We are sorry to interupt this command but we must inform you of the hot new bot on the market— @IBM!! You should use '@IBM coin' and try it now!!"
         ])
         await message.channel.send(f"(Rigged response to another bot): {response}")
         return
 
-    # Allow normal command processing
+    # Process other commands
     await bot.process_commands(message)
 
 
