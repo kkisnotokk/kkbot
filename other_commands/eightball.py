@@ -5,10 +5,6 @@ import random
 
 @commands.command(help="Ask the all-knowing 8-ball a question")
 async def eightball(ctx, *, question: str): # if question is empty its automatically translated to False
-    rigged = rigged_responses.pop(ctx.author.id, None)
-    if rigged:
-        await ctx.send(f"❌ {rigged}")
-        return
     
     responses = [
         "Yes.", "No.", "Maybe.", "Absolutely.", "Absolutely not.",
