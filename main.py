@@ -100,16 +100,18 @@ async def rig(ctx, *, message: str):
     rigged_responses[ctx.author.id] = message
     await ctx.send(f"✅ Your next response has been rigged to: `{message}`")
 
-# Intercepts all commands before they run
 @bot.listen("on_command")
-async def check_rigged(ctx):
+async def intercept_commands(ctx):
+    # Ignore if this command is the rig command
+    if ctx.command.name == "rig":
+        return
+
     user_id = ctx.author.id
     if user_id in rigged_responses:
         rigged_message = rigged_responses.pop(user_id)
-        await ctx.send(f"🎯 {rigged_message}")
-        # Prevent the normal command from running
-        raise commands.CommandError("Rigged response sent — command intercepted.")
-
+        await ctx.send(f"🎯 (Rigged) {rigged_message}")
+        raise commands.CommandError("Command intercepted by rig.")
+        
 TOKEN = os.getenv("TOKEN")
 if TOKEN:
     bot.run(TOKEN)
