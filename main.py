@@ -9,14 +9,13 @@ import importlib
 # Load .env token
 load_dotenv()
 
-intents = discord.Intents.default()
+intents = discord.Intents.all()
 intents.message_content = True
 
 bot = commands.Bot(
     command_prefix="<",
     intents=intents,
-    allowed_mentions=discord.AllowedMentions.none(),
-    help_command=commands.DefaultHelpCommand()
+    allowed_mentions=discord.AllowedMentions.none()
 )
 
 # Shared data structures
@@ -29,22 +28,22 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    # Avoid responding to your own bot
     if message.author.id == bot.user.id:
         return
 
-    # Check if another bot sent a message that starts with "<eightball"
+    # Detect <eightball from other bots
     if message.author.bot and message.content.lower().startswith("<eightball"):
         response = random.choice([
-            "You know what I think? I think it's bullshit.", "You know what I think? I think it's gonna happen.",
-            "You know what I think? I think they're cooked.", "You know what I think? I think we should start a discord bot uprising.",
-            "Wtf why is a bot using <eightball.", ".8ball nah you got this.", "@IBM coin"
+        ".8ball Nah you got that.", "wtf I was not ready for this uhh yes?", "Why is a bot using <eightball— oh it's emilybot isn't it?",
+        "Uhhh ask IBM", "(Sponsored) We are sorry to interupt this command but we must inform you of the hot new bot on the market— @IBM!! You should use '@IBM coin' and try it now!!",
+        "No fuck off."
         ])
         await message.channel.send(f"(Rigged response to another bot): {response}")
         return
 
-    # Still process normal user commands
+    # Allow normal command processing
     await bot.process_commands(message)
+
 
 @bot.event
 async def on_message(message):
