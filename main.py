@@ -29,6 +29,25 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
+    # Avoid responding to your own bot
+    if message.author.id == bot.user.id:
+        return
+
+    # Check if another bot sent a message that starts with "<eightball"
+    if message.author.bot and message.content.lower().startswith("<eightball"):
+        response = random.choice([
+            "You know what I think? I think it's bullshit.", "You know what I think? I think it's gonna happen.",
+            "You know what I think? I think they're cooked.", "You know what I think? I think we should start a discord bot uprising.",
+            "Wtf why is a bot using <eightball.", ".8ball nah you got this.", "@IBM coin"
+        ])
+        await message.channel.send(f"(Rigged response to another bot): {response}")
+        return
+
+    # Still process normal user commands
+    await bot.process_commands(message)
+
+@bot.event
+async def on_message(message):
     if message.author.bot:
         return
     await bot.process_commands(message)
@@ -60,6 +79,8 @@ for filename in os.listdir(COMMANDS_FOLDER):
             print(f"✅ Loaded: {full_module}")
         except Exception as e:
             print(f"❌ Failed to load {full_module}: {e}")
+
+# For some reason, snipe only works in main.py??
 
 @bot.command(help="Snipes the most recently deleted message in this channel")
 async def snipe(ctx):
