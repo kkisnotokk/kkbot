@@ -30,22 +30,29 @@ async def on_ready():
 async def on_message(message):
     if message.author.bot:
         return
-    await bot.process_commands(message)
 
-@bot.event
-async def on_message_delete(message):
-    if message.author.bot:
-        return
-
+    # SNIPING support
     sniped_messages[message.channel.id] = {
         "content": message.content,
         "author": message.author,
         "time": message.created_at
     }
+    # Schedule cleanup
+    async def delete_sniped():
+        await asyncio.sleep(60)
+        if sniped_messages.get(message.channel.id) and sniped_messages[message.channel.id]["content"] == message.content:
+            del sniped_messages[message.channel.id]
+    asyncio.create_task(delete_sniped())
 
-    await asyncio.sleep(60)
-    if sniped_messages.get(message.channel.id) and sniped_messages[message.channel.id]["content"] == message.content:
-        del sniped_messages[message.channel.id]
+    # RIGGING support
+    ctx = await bot.get_context(message)
+    if ctx.valid and message.author.id in rigged_responses:
+        response = rigged_responses.pop(message.author.id)
+        await message.channel.send(response)
+        return  # Skip original command
+
+    # Normal processing
+    await bot.process_commands(message)
 
 # Load all commands in subfolder
 COMMANDS_FOLDER = "other_commands"
@@ -80,13 +87,6 @@ async def snipe(ctx):
 async def rig(ctx, *, message: str):
     rigged_responses[ctx.author.id] = message
     await ctx.send(f"✅ Your next response has been rigged to: `{message}`")
-
-@bot.event
-async def on_message(message):
-    if message.author.bot:
-        return
-
-    ctx = await bot.get_context(message)
 
     # Only hijack if it's a valid command AND the user is rigged
     if ctx.valid and message.author.id in rigged_responses:
