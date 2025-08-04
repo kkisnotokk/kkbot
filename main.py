@@ -79,7 +79,7 @@ for filename in os.listdir(COMMANDS_FOLDER):
         except Exception as e:
             print(f"❌ Failed to load {full_module}: {e}")
 
-# For some reason, snipe only works in main.py??
+# For some reason, snipe & rig only works in main.py??
 
 @bot.command(help="Snipes the most recently deleted message in this channel")
 async def snipe(ctx):
@@ -92,6 +92,23 @@ async def snipe(ctx):
         )
     else:
         await ctx.send("There's nothing to snipe, stop being paranoid lmao")
+
+# CHATGPT BUGFIX BELOW
+
+@bot.command(name="rig")
+async def rig(ctx, *, message: str):
+    rigged_responses[ctx.author.id] = message
+    await ctx.send(f"✅ Your next response has been rigged to: `{message}`")
+
+# Intercepts all commands before they run
+@bot.listen("on_command")
+async def check_rigged(ctx):
+    user_id = ctx.author.id
+    if user_id in rigged_responses:
+        rigged_message = rigged_responses.pop(user_id)
+        await ctx.send(f"🎯 {rigged_message}")
+        # Prevent the normal command from running
+        raise commands.CommandError("Rigged response sent — command intercepted.")
 
 TOKEN = os.getenv("TOKEN")
 if TOKEN:
