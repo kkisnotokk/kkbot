@@ -239,7 +239,8 @@ async def eightball(ctx, *, question: str = None):
     if rigged:
         await ctx.send(f"🎯 {rigged}")
         return
-        responses = [
+
+    responses = [
         "Maybe.", "Absolutely.", "Absolutely not.",
         "Ask again in exactly 69.42 seconds.", "You have better things to worry about :3 (you don't wanna know)",
         "Without a doubt.", "I wouldn’t count on it.",
@@ -255,7 +256,6 @@ async def eightball(ctx, *, question: str = None):
         return
 
     answer = random.choice(responses)
-    
     await ctx.send(f"🎱 {answer}")
 
 @bot.command(help="Rates anything from 1/10 to 100/10")
