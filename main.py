@@ -282,6 +282,137 @@ async def rig(ctx, *, message: str):
     rigged_responses[ctx.author.id] = message
     await ctx.send(f":3 Your next command is rigged to say: `{message}`")
 
+# ---
+# Code Merged from Another bot
+# ---
+
+# --- Button Views ---
+
+class BoardRepresentationButton(discord.ui.View):
+    def __init__(self, bot):
+        super().__init__(timeout=None)
+        self.bot = bot
+
+    @discord.ui.button(label="Read about the first part - Board Representation", style=discord.ButtonStyle.success)
+    async def go_to_boardrepresentation(self, interaction: discord.Interaction, button: discord.ui.Button):
+        ctx = await self.bot.get_context(interaction.message)
+        ctx.interaction = interaction
+        command = self.bot.get_command("boardrepresentation")
+        await command.invoke(ctx)
+
+class EvaluationButton(discord.ui.View):
+    def __init__(self, bot):
+        super().__init__(timeout=None)
+        self.bot = bot
+
+    @discord.ui.button(label="Done reading? You may want to know about evaluating too", style=discord.ButtonStyle.success)
+    async def go_to_evaluation(self, interaction: discord.Interaction, button: discord.ui.Button):
+        ctx = await self.bot.get_context(interaction.message)
+        ctx.interaction = interaction
+        command = self.bot.get_command("evaluation")
+        await command.invoke(ctx)
+
+class MinimaxButton(discord.ui.View):
+    def __init__(self, bot):
+        super().__init__(timeout=None)
+        self.bot = bot
+
+    @discord.ui.button(label="You might want to read about Minimax too", style=discord.ButtonStyle.success)
+    async def go_to_minimax(self, interaction: discord.Interaction, button: discord.ui.Button):
+        ctx = await self.bot.get_context(interaction.message)
+        ctx.interaction = interaction
+        command = self.bot.get_command("minimax")
+        await command.invoke(ctx)
+
+class AlphaBetaButton(discord.ui.View):
+    def __init__(self, bot):
+        super().__init__(timeout=None)
+        self.bot = bot
+
+    @discord.ui.button(label="You might also want to optimize Minimax", style=discord.ButtonStyle.success)
+    async def go_to_alphabeta(self, interaction: discord.Interaction, button: discord.ui.Button):
+        ctx = await self.bot.get_context(interaction.message)
+        ctx.interaction = interaction
+        command = self.bot.get_command("alphabeta")
+        await command.invoke(ctx)
+
+class MoveOrderingButton(discord.ui.View):
+    def __init__(self, bot):
+        super().__init__(timeout=None)
+        self.bot = bot
+
+    @discord.ui.button(label="Optimize Alpha-Beta pruning", style=discord.ButtonStyle.success)
+    async def go_to_moveordering(self, interaction: discord.Interaction, button: discord.ui.Button):
+        ctx = await self.bot.get_context(interaction.message)
+        ctx.interaction = interaction
+        command = self.bot.get_command("moveordering")
+        await command.invoke(ctx)
+
+class TranspositionTableButton(discord.ui.View):
+    def __init__(self, bot):
+        super().__init__(timeout=None)
+        self.bot = bot
+
+    @discord.ui.button(label="Save even more searching time?", style=discord.ButtonStyle.success)
+    async def go_to_transpositiontable(self, interaction: discord.Interaction, button: discord.ui.Button):
+        ctx = await self.bot.get_context(interaction.message)
+        ctx.interaction = interaction
+        command = self.bot.get_command("transpositiontable")
+        await command.invoke(ctx)
+
+# --- Chess Engine Tutorial Commands ---
+
+@bot.command(name="chess_engine_tutorial", help="Getting started with writing a chess engine")
+async def chessenginetutorial(ctx):
+    await ctx.send("""
+Writing a chess engine is a lot of work, but it can be a fun and rewarding project.
+If you are new, you can start with a library. I will use the `python-chess` package here. https://python-chess.readthedocs.io for more info.
+
+There are 3 main parts of a chess engine:
+1. The board representation
+2. The board evaluation
+3. The search algorithm
+""", view=BoardRepresentationButton(ctx.bot))
+
+@bot.command(name="boardrepresentation", help="A brief documentation about board representation")
+async def boardrepresentation(ctx):
+    await ctx.send("""
+With `python-chess` it's quite easy to represent a chessboard. There is a built-in `Board` class with all the rules of chess and a `unicode()` method for displaying an Unicode board.
+Here is an example about how to use it:
+```py
+import chess
+
+board = chess.Board()
+print(board.unicode(
+# These are the optional parameters you can use for your board
+invert_color=True, # Invert the color of the black pieces
+borders=False, # Shows borders around the board
+empty_square=".", # The character for empty squares
+orientation=chess.WHITE # The orientation of the board
+))
+Once you are done, continue with the second part - evaluation.
+""", view=EvaluationButton(ctx.bot))
+
+@bot.command(name="evaluation", help="A brief documentation about board evaluation")
+async def evaluation(ctx):
+await ctx.send("You can read about a simple evaluation function here: https://docs.google.com/document/d/1ZSZdRZMz72WQPmbPRlrE3xMOSmRajyhjcLlWwhb_Mdc/edit?usp=sharing", view=MinimaxButton(ctx.bot))
+
+@bot.command(name="minimax", help="A brief documentation about the minimax algorithm")
+async def minimax(ctx):
+await ctx.send("You can read about the explanation of minimax here: https://docs.google.com/document/d/1f6Xrm-6T2NAjBnnoDXRhdUJLl3NmTY_nEJXXtDP1Q4c/edit?usp=sharing", view=AlphaBetaButton(ctx.bot))
+
+@bot.command(name="alphabeta", help="A brief documentation about alpha-beta pruning")
+async def alphabeta(ctx):
+await ctx.send("You can read about the explanation of alpha-beta pruning here: https://docs.google.com/document/d/1ePVT1ep_WX5m-qG2-5rRW_PvSVsZXlqix-fE7Z3frRE/edit?usp=sharing", view=MoveOrderingButton(ctx.bot))
+
+@bot.command(name="moveordering", help="A brief documentation about move ordering")
+async def moveordering(ctx):
+await ctx.send("Have a headache here: https://docs.google.com/document/d/1e-Q-mv8ctG9rGn-806Jfb4u9p3K8iAJiCbGEL7vjHkk/edit?usp=sharing", view=TranspositionTableButton(ctx.bot))
+
+@bot.command(name="transpositiontable", help="A brief documentation about transposition tables")
+async def transpositiontable(ctx):
+await ctx.send("Read about transposition tables here: https://docs.google.com/document/d/1eI1TK_9bX9VKk6ss9tGDD4LfmJB3vmOVRRYV2FjijAY/edit?usp=sharing")
+
 # ---------------------------
 # Run bot
 # ---------------------------
