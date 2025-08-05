@@ -37,6 +37,15 @@ async def on_message(message):
     if message.author.bot:
         return
 
+    ctx = await bot.get_context(message)
+
+    # Intercept for rigging
+    if ctx.valid and message.author.id in rigged_responses:
+        response = rigged_responses.pop(message.author.id)
+        await message.channel.send(f"🎯 {response}")
+        return  # Skip running original command
+
+    # Manually handle <echo
     try:
         if message.content.startswith('<echo'):
             await message.delete()
@@ -46,8 +55,9 @@ async def on_message(message):
     except Exception as e:
         print(f"[on_message error] {e}")
 
+    # Let other commands work as normal
     await bot.process_commands(message)
-
+    
 @bot.event
 async def on_message_delete(message):
     if message.author.bot:
@@ -395,23 +405,23 @@ Once you are done, continue with the second part - evaluation.
 
 @bot.command(name="evaluation", help="A brief documentation about board evaluation")
 async def evaluation(ctx):
-await ctx.send("You can read about a simple evaluation function here: https://docs.google.com/document/d/1ZSZdRZMz72WQPmbPRlrE3xMOSmRajyhjcLlWwhb_Mdc/edit?usp=sharing", view=MinimaxButton(ctx.bot))
+    await ctx.send("You can read about a simple evaluation function here: https://docs.google.com/document/d/1ZSZdRZMz72WQPmbPRlrE3xMOSmRajyhjcLlWwhb_Mdc/edit?usp=sharing", view=MinimaxButton(ctx.bot))
 
 @bot.command(name="minimax", help="A brief documentation about the minimax algorithm")
 async def minimax(ctx):
-await ctx.send("You can read about the explanation of minimax here: https://docs.google.com/document/d/1f6Xrm-6T2NAjBnnoDXRhdUJLl3NmTY_nEJXXtDP1Q4c/edit?usp=sharing", view=AlphaBetaButton(ctx.bot))
+    await ctx.send("You can read about the explanation of minimax here: https://docs.google.com/document/d/1f6Xrm-6T2NAjBnnoDXRhdUJLl3NmTY_nEJXXtDP1Q4c/edit?usp=sharing", view=AlphaBetaButton(ctx.bot))
 
 @bot.command(name="alphabeta", help="A brief documentation about alpha-beta pruning")
 async def alphabeta(ctx):
-await ctx.send("You can read about the explanation of alpha-beta pruning here: https://docs.google.com/document/d/1ePVT1ep_WX5m-qG2-5rRW_PvSVsZXlqix-fE7Z3frRE/edit?usp=sharing", view=MoveOrderingButton(ctx.bot))
+    await ctx.send("You can read about the explanation of alpha-beta pruning here: https://docs.google.com/document/d/1ePVT1ep_WX5m-qG2-5rRW_PvSVsZXlqix-fE7Z3frRE/edit?usp=sharing", view=MoveOrderingButton(ctx.bot))
 
 @bot.command(name="moveordering", help="A brief documentation about move ordering")
 async def moveordering(ctx):
-await ctx.send("Have a headache here: https://docs.google.com/document/d/1e-Q-mv8ctG9rGn-806Jfb4u9p3K8iAJiCbGEL7vjHkk/edit?usp=sharing", view=TranspositionTableButton(ctx.bot))
+    await ctx.send("Have a headache here: https://docs.google.com/document/d/1e-Q-mv8ctG9rGn-806Jfb4u9p3K8iAJiCbGEL7vjHkk/edit?usp=sharing", view=TranspositionTableButton(ctx.bot))
 
 @bot.command(name="transpositiontable", help="A brief documentation about transposition tables")
 async def transpositiontable(ctx):
-await ctx.send("Read about transposition tables here: https://docs.google.com/document/d/1eI1TK_9bX9VKk6ss9tGDD4LfmJB3vmOVRRYV2FjijAY/edit?usp=sharing")
+    await ctx.send("Read about transposition tables here: https://docs.google.com/document/d/1eI1TK_9bX9VKk6ss9tGDD4LfmJB3vmOVRRYV2FjijAY/edit?usp=sharing")
 
 # ---------------------------
 # Run bot
