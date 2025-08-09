@@ -6,6 +6,7 @@ from discord.utils import escape_mentions, escape_markdown
 import random
 import re
 import asyncio
+import aiohttp
 
 # Load .env token
 load_dotenv()
@@ -291,6 +292,63 @@ async def mock(ctx, *, text: str = None):
 async def rig(ctx, *, message: str):
     rigged_responses[ctx.author.id] = message
     await ctx.send(f":3 Your next command is rigged to say: `{message}`")
+
+@bot.command()
+async def remind(ctx, time: str, *, task: str = None):
+    """Set a reminder. Usage: <remind <time> [optional task]"""
+    
+    unit = time[-1]
+    if not time[:-1].isdigit() or unit not in ['s', 'm', 'h']:
+        await ctx.send("Invalid time format. Use something like `10s`, `5m`, or `24h`.")
+        return
+
+    amount = int(time[:-1])
+    if unit == 's':
+        seconds = amount
+    elif unit == 'm':
+        seconds = amount * 60
+    elif unit == 'h':
+        seconds = amount * 3600
+
+    await ctx.send(f"Okk {ctx.author.mention}, I'll remind you in {amount}{unit}.")
+
+    await asyncio.sleep(seconds)
+
+    if task:
+        await ctx.send(f"WEWOWEWOWEWO {ctx.author.mention}: {task}")
+    else:
+        await ctx.send(f"Reminder for {ctx.author.mention}!")
+
+@bot.command()
+async def define(ctx, *, word: str):
+    """
+    Looks up the definition of a word using Free Dictionary API.
+    Usage: <define example
+    """
+    url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}"
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status != 200:
+                await ctx.send(f"❌ No definition found for **{word}**.")
+                return
+            
+            data = await response.json()
+
+    try:
+        meaning = data[0]["meanings"][0]
+        part_of_speech = meaning["partOfSpeech"]
+        definition = meaning["definitions"][0]["definition"]
+        example = meaning["definitions"][0].get("example", None)
+
+        msg = f"**{word.capitalize()}** (*{part_of_speech}*)\n{definition}"
+        if example:
+            msg += f"\n*Example:* {example}"
+        
+        await ctx.send(msg)
+
+    except (KeyError, IndexError):
+        await ctx.send(f"❌ Could not parse definition for **{word}**.")
 
 # ---
 # Code Merged from Another bot
