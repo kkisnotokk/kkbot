@@ -320,10 +320,10 @@ async def remind(ctx, time: str, *, task: str = None):
         await ctx.send(f"Reminder for {ctx.author.mention}!")
 
 @bot.command()
-async def define(ctx, *, word: str):
+async def dictionary(ctx, *, word: str):
     """
     Looks up the definition of a word using Free Dictionary API.
-    Usage: <define example
+    Usage: <dictionary example
     """
     url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}"
     
