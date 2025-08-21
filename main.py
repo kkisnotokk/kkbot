@@ -7,6 +7,8 @@ import random
 import re
 import asyncio
 import aiohttp
+import json
+import time
 
 # Load .env token
 load_dotenv()
@@ -294,32 +296,6 @@ async def rig(ctx, *, message: str):
     await ctx.send(f":3 Your next command is rigged to say: `{message}`")
 
 @bot.command()
-async def remind(ctx, time: str, *, task: str = None):
-    """Set a reminder. Usage: <remind <time> [optional task]"""
-    
-    unit = time[-1]
-    if not time[:-1].isdigit() or unit not in ['s', 'm', 'h']:
-        await ctx.send("Invalid time format. Use something like `10s`, `5m`, or `24h`.")
-        return
-
-    amount = int(time[:-1])
-    if unit == 's':
-        seconds = amount
-    elif unit == 'm':
-        seconds = amount * 60
-    elif unit == 'h':
-        seconds = amount * 3600
-
-    await ctx.send(f"Okk {ctx.author.mention}, I'll remind you in {amount}{unit}.")
-
-    await asyncio.sleep(seconds)
-
-    if task:
-        await ctx.send(f"WEWOWEWOWEWO {ctx.author.mention}: {task}")
-    else:
-        await ctx.send(f"Reminder for {ctx.author.mention}!")
-
-@bot.command()
 async def dictionary(ctx, *, word: str):
     """
     Looks up the definition of a word using Free Dictionary API.
@@ -349,6 +325,132 @@ async def dictionary(ctx, *, word: str):
 
     except (KeyError, IndexError):
         await ctx.send(f"❌ Could not parse definition for **{word}**.")
+
+@bot.command(name="summarize", help="Condense the replied-to message into its core meaning")
+async def summarize(ctx):
+    if not ctx.message.reference:
+        await ctx.send("↩️ Please reply to the message you want summarized.")
+        return
+
+    replied_message = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+    text = replied_message.content.strip()
+
+    if not text:
+        await ctx.send("❌ That message has no text to summarize.")
+        return
+
+    words = text.split()
+    if len(words) <= 12:
+        condensed = text  
+    else:
+        condensed = " ".join(words[:8] + ["..."] + words[-4:])
+
+    await ctx.send(condensed)
+
+REMINDERS_FILE = "reminders.json"
+
+if os.path.exists(REMINDERS_FILE):
+    with open(REMINDERS_FILE, "r") as f:
+        reminders = json.load(f)
+else:
+    reminders = []
+
+def save_reminders():
+    with open(REMINDERS_FILE, "w") as f:
+        json.dump(reminders, f)
+
+async def reminder_loop():
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        now = time.time()
+        due = [r for r in reminders if r["time"] <= now]
+        for r in due:
+            try:
+                channel = bot.get_channel(r["channel"])
+                if channel:
+                    user = f"<@{r['user']}>"
+                    task = f" Reminder: {r['task']}" if r["task"] else ""
+                    await channel.send(f"WEWOWEWO {user}{task}")
+            except Exception as e:
+                print(f"Error sending reminder: {e}")
+            reminders.remove(r)
+            save_reminders()
+        await asyncio.sleep(5)
+
+@bot.command(name="remind", aliases=["reminder"], help="Set a reminder: <remind 10m close this suggestion>")
+async def remind(ctx, time_input: str, *, task: str = ""):
+    units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+    try:
+        unit = time_input[-1]
+        if unit not in units:
+            await ctx.send("❌ Invalid time format. Use s/m/h/d (e.g., 10m, 2h).")
+            return
+        amount = int(time_input[:-1])
+        delay = amount * units[unit]
+    except ValueError:
+        await ctx.send("❌ Invalid time. Example: `<remind 10m Do homework>`")
+        return
+
+    remind_time = int(time.time() + delay)
+    reminders.append({
+        "user": ctx.author.id,
+        "channel": ctx.channel.id,
+        "time": remind_time,
+        "task": task
+    })
+    save_reminders()
+
+    await ctx.send(
+        f"Okk, I’ll remind you {f'to {task}' if task else ''} "
+        f"<t:{remind_time}:R> (**<t:{remind_time}:F>**)."
+    )
+
+bot.loop.create_task(reminder_loop())
+
+@bot.command(name="reminders", help="View your pending reminders")
+async def reminders_cmd(ctx):
+    user_reminders = [r for r in reminders if r["user"] == ctx.author.id]
+
+    if not user_reminders:
+        await ctx.send(" You don’t have any pending reminders.")
+        return
+
+    lines = []
+    for i, r in enumerate(sorted(user_reminders, key=lambda x: x["time"]), 1):
+        task_text = f" → {r['task']}" if r["task"] else ""
+        lines.append(
+            f"**{i}.** <t:{int(r['time'])}:R> (**<t:{int(r['time'])}:F>**){task_text}"
+        )
+
+    await ctx.send(
+        f" **Your reminders:**\n" + "\n".join(lines)
+    )
+@bot.command(
+    name="cancelreminder",
+    aliases=["cancelreminders", "delreminder", "deletereminder"],
+    help="Cancel one of your reminders by its number (see <reminders>)"
+)
+async def cancel_reminder(ctx, number: int):
+    user_reminders = [r for r in reminders if r["user"] == ctx.author.id]
+
+    if not user_reminders:
+        await ctx.send("You don’t have any reminders to cancel.")
+        return
+
+    if number < 1 or number > len(user_reminders):
+        await ctx.send(f"Invalid reminder number. Use `<reminders` to see valid numbers.")
+        return
+
+    reminder_to_cancel = sorted(user_reminders, key=lambda x: x["time"])[number - 1]
+    reminders.remove(reminder_to_cancel)
+
+    save_reminders()
+
+    task_text = f" → {reminder_to_cancel['task']}" if reminder_to_cancel["task"] else ""
+    await ctx.send(
+        f"Reminder #{number} has been cancelled: <t:{int(reminder_to_cancel['time'])}:F>{task_text}"
+    )
+
 
 # ---
 # Code Merged from Another bot
