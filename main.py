@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import os
 from dotenv import load_dotenv
-from discord.utils import escape_mentions, escape_markdown
+# from discord.utils import escape_mentions, escape_markdown  # unused; keep or remove
 import random
 import re
 import asyncio
@@ -16,12 +16,12 @@ TOKEN = os.getenv("TOKEN")
 
 # Setup bot
 intents = discord.Intents.default()
-intents.message_content = True
+intents.message_content = True  # needed for on_message and content parsing
 
 bot = commands.Bot(
     command_prefix="<",
     intents=intents,
-    help_command=commands.DefaultHelpCommand()
+    help_command=commands.DefaultHelpCommand(),
 )
 
 sniped_messages = {}
@@ -40,14 +40,6 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    ctx = await bot.get_context(message)
-
-    # Intercept for rigging
-    if ctx.valid and message.author.id in rigged_responses:
-        response = rigged_responses.pop(message.author.id)
-        await message.channel.send(f"🎯 {response}")
-        return  # Skip running original command
-
     # Manually handle <echo
     try:
         if message.content.startswith('<echo'):
@@ -60,7 +52,7 @@ async def on_message(message):
 
     # Let other commands work as normal
     await bot.process_commands(message)
-    
+
 @bot.event
 async def on_message_delete(message):
     if message.author.bot:
@@ -91,7 +83,7 @@ async def ping(ctx):
 @bot.command(help="Wrong bot, check out the one literally called Chat Revival Bot")
 async def revive(ctx):
     await ctx.send("Sorry but I won't steal the jobs of my fellow bots, unless it's RNGesus, screw that guy.")
-    
+
 @bot.command(help="IS THAT A SURVIV REFERENCE??")
 async def reviv(ctx):
     await ctx.send("Not only did you make a typo, but you also used the wrong prefix, AND you also referenced Surviv.")
@@ -103,14 +95,14 @@ async def mango(ctx):
 @bot.command(help="silvy")
 async def lemon(ctx):
     await ctx.send("🥭")
-    
+
 @bot.command(help="it's vivid")
 async def vivid(ctx):
     await ctx.send("Holy shit is it time for another vividstory? I better make sure my kids don't see this.")
 
 @bot.command(help="nothing")
 async def nothing(ctx):
-    await ctx.send("")
+    await ctx.send("\u200b")  # zero-width space so it's a valid message
 
 @bot.command(help="pew pew")
 async def sniper(ctx):
@@ -192,7 +184,7 @@ async def roll(ctx, *, args):
             return
         except ValueError:
             pass
-            
+
     await ctx.send("❌ Usage:\n- <roll 100 → random number from 1–100\n- <roll red, blue, green → pick from choices")
 
 @bot.command(help="Snipes the most recently deleted message in this channel")
@@ -200,7 +192,7 @@ async def snipe(ctx):
     snipe_data = sniped_messages.get(ctx.channel.id)
 
     if snipe_data:
-        time_diff = (discord.utils.utcnow() - snipe_data["time"]).seconds
+        time_diff = int((discord.utils.utcnow() - snipe_data["time"]).total_seconds())
         await ctx.send(
             f"Deleted message by **{snipe_data['author']}** ({time_diff} seconds ago):\n> {snipe_data['content']}"
         )
@@ -233,7 +225,7 @@ async def pingroulette(ctx):
 
     # Second message (Dyno-style fake ping)
     fake_ping = f"{label}".replace("ping ", "")  # strips "ping " to make it look like a name
-    fake_ping = "@" + "\u200b".join(fake_ping)     # Inserts zero-width space to prevent real ping
+    fake_ping = "@" + "\u200b".join(fake_ping)   # zero-width join to prevent real ping
     await ctx.send(fake_ping)
 
 @bot.command(help="Ask the all-knowing 8-ball a question")
@@ -275,7 +267,7 @@ async def rate(ctx, *, thing: str = None):
     score = random.choice(
         list(range(1, 11)) + [69, 100, 0, -1, 404, 456]  # Spice it up
     )
-    
+
     await ctx.send(f"📊 I'd rate **{thing}** a solid **{score}/10**")
 
 @bot.command(help="Mocks your sentence. Example: <mock I am serious")
@@ -302,13 +294,13 @@ async def dictionary(ctx, *, word: str):
     Usage: <dictionary example
     """
     url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}"
-    
+
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             if response.status != 200:
                 await ctx.send(f"❌ No definition found for **{word}**.")
                 return
-            
+
             data = await response.json()
 
     try:
@@ -320,7 +312,7 @@ async def dictionary(ctx, *, word: str):
         msg = f"**{word.capitalize()}** (*{part_of_speech}*)\n{definition}"
         if example:
             msg += f"\n*Example:* {example}"
-        
+
         await ctx.send(msg)
 
     except (KeyError, IndexError):
@@ -341,7 +333,7 @@ async def summarize(ctx):
 
     words = text.split()
     if len(words) <= 12:
-        condensed = text  
+        condensed = text
     else:
         condensed = " ".join(words[:8] + ["..."] + words[-4:])
 
@@ -386,6 +378,9 @@ async def remind(ctx, time_input: str, *, task: str = ""):
             await ctx.send("❌ Invalid time format. Use s/m/h/d (e.g., 10m, 2h).")
             return
         amount = int(time_input[:-1])
+        if amount <= 0:
+            await ctx.send("❌ Time must be greater than 0.")
+            return
         delay = amount * units[unit]
     except ValueError:
         await ctx.send("❌ Invalid time. Example: `<remind 10m Do homework>`")
@@ -405,8 +400,6 @@ async def remind(ctx, time_input: str, *, task: str = ""):
         f"<t:{remind_time}:R> (**<t:{remind_time}:F>**)."
     )
 
-bot.loop.create_task(reminder_loop())
-
 @bot.command(name="reminders", help="View your pending reminders")
 async def reminders_cmd(ctx):
     user_reminders = [r for r in reminders if r["user"] == ctx.author.id]
@@ -425,11 +418,8 @@ async def reminders_cmd(ctx):
     await ctx.send(
         f" **Your reminders:**\n" + "\n".join(lines)
     )
-@bot.command(
-    name="cancelreminder",
-    aliases=["cancelreminders", "delreminder", "deletereminder"],
-    help="Cancel one of your reminders by its number (see <reminders>)"
-)
+
+@bot.command(name="cancelreminder", aliases=["cancelreminders", "delreminder", "deletereminder"], help="Cancel one of your reminders by its number (see <reminders>)")
 async def cancel_reminder(ctx, number: int):
     user_reminders = [r for r in reminders if r["user"] == ctx.author.id]
 
@@ -451,7 +441,6 @@ async def cancel_reminder(ctx, number: int):
         f"Reminder #{number} has been cancelled: <t:{int(reminder_to_cancel['time'])}:F>{task_text}"
     )
 
-
 # ---
 # Code Merged from Another bot
 # ---
@@ -465,10 +454,11 @@ class BoardRepresentationButton(discord.ui.View):
 
     @discord.ui.button(label="Read about the first part - Board Representation", style=discord.ButtonStyle.success)
     async def go_to_boardrepresentation(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()  # acknowledge the interaction
         ctx = await self.bot.get_context(interaction.message)
         ctx.interaction = interaction
         command = self.bot.get_command("boardrepresentation")
-        await command.invoke(ctx)
+        await ctx.invoke(command)
 
 class EvaluationButton(discord.ui.View):
     def __init__(self, bot):
@@ -477,10 +467,11 @@ class EvaluationButton(discord.ui.View):
 
     @discord.ui.button(label="Done reading? You may want to know about evaluating too", style=discord.ButtonStyle.success)
     async def go_to_evaluation(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
         ctx = await self.bot.get_context(interaction.message)
         ctx.interaction = interaction
         command = self.bot.get_command("evaluation")
-        await command.invoke(ctx)
+        await ctx.invoke(command)
 
 class MinimaxButton(discord.ui.View):
     def __init__(self, bot):
@@ -489,10 +480,11 @@ class MinimaxButton(discord.ui.View):
 
     @discord.ui.button(label="You might want to read about Minimax too", style=discord.ButtonStyle.success)
     async def go_to_minimax(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
         ctx = await self.bot.get_context(interaction.message)
         ctx.interaction = interaction
         command = self.bot.get_command("minimax")
-        await command.invoke(ctx)
+        await ctx.invoke(command)
 
 class AlphaBetaButton(discord.ui.View):
     def __init__(self, bot):
@@ -501,10 +493,11 @@ class AlphaBetaButton(discord.ui.View):
 
     @discord.ui.button(label="You might also want to optimize Minimax", style=discord.ButtonStyle.success)
     async def go_to_alphabeta(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
         ctx = await self.bot.get_context(interaction.message)
         ctx.interaction = interaction
         command = self.bot.get_command("alphabeta")
-        await command.invoke(ctx)
+        await ctx.invoke(command)
 
 class MoveOrderingButton(discord.ui.View):
     def __init__(self, bot):
@@ -513,10 +506,11 @@ class MoveOrderingButton(discord.ui.View):
 
     @discord.ui.button(label="Optimize Alpha-Beta pruning", style=discord.ButtonStyle.success)
     async def go_to_moveordering(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
         ctx = await self.bot.get_context(interaction.message)
         ctx.interaction = interaction
         command = self.bot.get_command("moveordering")
-        await command.invoke(ctx)
+        await ctx.invoke(command)
 
 class TranspositionTableButton(discord.ui.View):
     def __init__(self, bot):
@@ -525,10 +519,11 @@ class TranspositionTableButton(discord.ui.View):
 
     @discord.ui.button(label="Save even more searching time?", style=discord.ButtonStyle.success)
     async def go_to_transpositiontable(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
         ctx = await self.bot.get_context(interaction.message)
         ctx.interaction = interaction
         command = self.bot.get_command("transpositiontable")
-        await command.invoke(ctx)
+        await ctx.invoke(command)
 
 # --- Chess Engine Tutorial Commands ---
 
@@ -554,11 +549,11 @@ import chess
 
 board = chess.Board()
 print(board.unicode(
-# These are the optional parameters you can use for your board
-invert_color=True, # Invert the color of the black pieces
-borders=False, # Shows borders around the board
-empty_square=".", # The character for empty squares
-orientation=chess.WHITE # The orientation of the board
+    # These are the optional parameters you can use for your board
+    invert_color=True,  # Invert the color of the black pieces
+    borders=False,      # Shows borders around the board
+    empty_square=".",   # The character for empty squares
+    orientation=chess.WHITE  # The orientation of the board
 ))
 Once you are done, continue with the second part - evaluation.
 """, view=EvaluationButton(ctx.bot))
@@ -582,6 +577,23 @@ async def moveordering(ctx):
 @bot.command(name="transpositiontable", help="A brief documentation about transposition tables")
 async def transpositiontable(ctx):
     await ctx.send("Read about transposition tables here: https://docs.google.com/document/d/1eI1TK_9bX9VKk6ss9tGDD4LfmJB3vmOVRRYV2FjijAY/edit?usp=sharing")
+
+# ---------------------------
+# Setup hook: background task + persistent views
+# ---------------------------
+
+@bot.event
+async def setup_hook():
+# start reminder loop
+asyncio.create_task(reminder_loop())
+
+# register persistent views so buttons work after restarts
+bot.add_view(BoardRepresentationButton(bot))
+bot.add_view(EvaluationButton(bot))
+bot.add_view(MinimaxButton(bot))
+bot.add_view(AlphaBetaButton(bot))
+bot.add_view(MoveOrderingButton(bot))
+bot.add_view(TranspositionTableButton(bot))
 
 # ---------------------------
 # Run bot
