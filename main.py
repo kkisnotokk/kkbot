@@ -579,23 +579,6 @@ async def transpositiontable(ctx):
     await ctx.send("Read about transposition tables here: https://docs.google.com/document/d/1eI1TK_9bX9VKk6ss9tGDD4LfmJB3vmOVRRYV2FjijAY/edit?usp=sharing")
 
 # ---------------------------
-# Setup hook: background task + persistent views
-# ---------------------------
-
-@bot.event
-async def setup_hook():
-# start reminder loop
-asyncio.create_task(reminder_loop())
-
-# register persistent views so buttons work after restarts
-bot.add_view(BoardRepresentationButton(bot))
-bot.add_view(EvaluationButton(bot))
-bot.add_view(MinimaxButton(bot))
-bot.add_view(AlphaBetaButton(bot))
-bot.add_view(MoveOrderingButton(bot))
-bot.add_view(TranspositionTableButton(bot))
-
-# ---------------------------
 # Run bot
 # ---------------------------
 
