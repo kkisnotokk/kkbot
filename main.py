@@ -10,6 +10,36 @@ import aiohttp
 import json
 import time
 
+REMINDERS_FILE = "reminders.json"
+
+if os.path.exists(REMINDERS_FILE):
+    with open(REMINDERS_FILE, "r") as f:
+        reminders = json.load(f)
+else:
+    reminders = []
+
+def save_reminders():
+    with open(REMINDERS_FILE, "w") as f:
+        json.dump(reminders, f)
+
+async def reminder_loop():
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        now = time.time()
+        due = [r for r in reminders if r["time"] <= now]
+        for r in due:
+            try:
+                channel = bot.get_channel(r["channel"])
+                if channel:
+                    user = f"<@{r['user']}>"
+                    task = f" Reminder: {r['task']}" if r["task"] else ""
+                    await channel.send(f"WEWOWEWO {user}{task}")
+            except Exception as e:
+                print(f"Error sending reminder: {e}")
+            reminders.remove(r)
+            save_reminders()
+        await asyncio.sleep(5)
+
 # Load .env token
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
@@ -338,36 +368,6 @@ async def summarize(ctx):
         condensed = " ".join(words[:8] + ["..."] + words[-4:])
 
     await ctx.send(condensed)
-
-REMINDERS_FILE = "reminders.json"
-
-if os.path.exists(REMINDERS_FILE):
-    with open(REMINDERS_FILE, "r") as f:
-        reminders = json.load(f)
-else:
-    reminders = []
-
-def save_reminders():
-    with open(REMINDERS_FILE, "w") as f:
-        json.dump(reminders, f)
-
-async def reminder_loop():
-    await bot.wait_until_ready()
-    while not bot.is_closed():
-        now = time.time()
-        due = [r for r in reminders if r["time"] <= now]
-        for r in due:
-            try:
-                channel = bot.get_channel(r["channel"])
-                if channel:
-                    user = f"<@{r['user']}>"
-                    task = f" Reminder: {r['task']}" if r["task"] else ""
-                    await channel.send(f"WEWOWEWO {user}{task}")
-            except Exception as e:
-                print(f"Error sending reminder: {e}")
-            reminders.remove(r)
-            save_reminders()
-        await asyncio.sleep(5)
 
 @bot.command(name="remind", aliases=["reminder"], help="Set a reminder: <remind 10m close this suggestion>")
 async def remind(ctx, time_input: str, *, task: str = ""):
