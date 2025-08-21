@@ -64,6 +64,7 @@ rigged_responses = {}
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user}!")
+    bot.loop.create_task(reminder_loop())
 
 @bot.event
 async def on_message(message):
