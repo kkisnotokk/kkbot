@@ -496,6 +496,57 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
+# --- Built-in presets ---
+builtin_presets = {
+    "rplyr": [f"player {str(i).zfill(2)}" for i in range(1, 41)],  # player 01 - player 40
+    "rma": [
+        "king blunderer",
+        "apollix",
+        "Kuyicon",
+        "Emily",
+        "silvy",
+        "no one",
+        "Pezut",
+        "Chezmosis",
+        "Py Rick",
+        "M",
+        "TampliteSK",
+        "Almostgood",
+        "Anti",
+        "Chicken Nugget",
+        "Ral",
+        "darth vader",
+        "erixero",
+        "Beniu1305",
+        "Ghoda",
+        "jsaidoru",
+        "Surviv_34",
+        "Mrsir_real",
+        "Kan",
+        "!kk!",
+        "ManosSef",
+        "myloRAHH",
+        "NotBaltic",
+        "sted",
+        "SudokuFan",
+        "vivid",
+        "Sealandball",
+        "ⁱᶜᵉ³"
+    ]
+}
+
+@bot.command(name="rpreset")
+async def rpreset(ctx, *, template: str):
+    output = template
+
+    # Keep replacing until no placeholders left
+    for preset_name, preset_values in builtin_presets.items():
+        placeholder = f"({preset_name})"
+        while placeholder in output:
+            choice = random.choice(preset_values)
+            output = output.replace(placeholder, choice, 1)
+
+    await ctx.send(output)
 
 # ---
 # Code Merged from Another bot
