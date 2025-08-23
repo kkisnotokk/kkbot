@@ -10,6 +10,20 @@ import aiohttp
 import json
 import time
 
+# ---- Presets file ----
+PRESETS_FILE = "roll_presets.json"
+
+# Load presets from file
+if os.path.exists(PRESETS_FILE):
+    with open(PRESETS_FILE, "r") as f:
+        roll_presets = json.load(f)
+else:
+    roll_presets = {}
+
+def save_presets():
+    with open(PRESETS_FILE, "w") as f:
+        json.dump(roll_presets, f, indent=2)
+
 REMINDERS_FILE = "reminders.json"
 
 if os.path.exists(REMINDERS_FILE):
@@ -441,6 +455,47 @@ async def cancel_reminder(ctx, number: int):
     await ctx.send(
         f"Reminder #{number} has been cancelled: <t:{int(reminder_to_cancel['time'])}:F>{task_text}"
     )
+
+# ---- Command to create preset ----
+@bot.command(name="create_roll_preset")
+async def create_roll_preset(ctx, preset_name: str, *, content: str):
+    options = [item.strip() for item in content.split(",") if item.strip()]
+    if not options:
+        await ctx.send("❌ You must provide at least one option.")
+        return
+
+    roll_presets[preset_name.lower()] = options
+    save_presets()
+    await ctx.send(f"✅ Preset `{preset_name}` created with {len(options)} options.")
+
+# ---- Command to list presets ----
+@bot.command(name="list_roll_presets")
+async def list_roll_presets(ctx):
+    if not roll_presets:
+        await ctx.send("📭 No roll presets saved yet.")
+        return
+    preset_list = ", ".join(roll_presets.keys())
+    await ctx.send(f"🎲 Available roll presets: {preset_list}")
+
+# ---- Custom command handler for <preset_name> ----
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    ctx = await bot.get_context(message)
+
+    # Check if user typed a preset command
+    if message.content.startswith("<"):
+        cmd_name = message.content[1:].lower()  # strip '<' and lowercase
+        if cmd_name in roll_presets:
+            import random
+            choice = random.choice(roll_presets[cmd_name])
+            await message.channel.send(f"🎲 {message.author.mention}, your roll from `{cmd_name}` is: **{choice}**")
+            return
+
+    await bot.process_commands(message)
+
 
 # ---
 # Code Merged from Another bot
