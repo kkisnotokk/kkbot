@@ -10,19 +10,61 @@ import aiohttp
 import json
 import time
 
-# ---- Presets file ----
-PRESETS_FILE = "roll_presets.json"
 
-# Load presets from file
-if os.path.exists(PRESETS_FILE):
-    with open(PRESETS_FILE, "r") as f:
-        roll_presets = json.load(f)
-else:
-    roll_presets = {}
+PRESETS_FILE = "presets.json"
 
-def save_presets():
+# --- Built-in presets ---
+builtin_presets = {
+    "rplyr": [f"player {str(i).zfill(2)}" for i in range(1, 41)],  # player 01 - player 40
+    "rma": [
+        "king blunderer",
+        "apollix",
+        "Kuyicon",
+        "Emily",
+        "silvy",
+        "no one",
+        "Pezut",
+        "Chezmosis",
+        "Py Rick",
+        "M",
+        "TampliteSK",
+        "Almostgood",
+        "Anti",
+        "Chicken Nugget",
+        "Ral",
+        "darth vader",
+        "erixero",
+        "Beniu1305",
+        "Ghoda",
+        "jsaidoru",
+        "Surviv_34",
+        "Mrsir_real",
+        "Kan",
+        "!kk!",
+        "ManosSef",
+        "myloRAHH",
+        "NotBaltic",
+        "sted",
+        "SudokuFan",
+        "vivid",
+        "Sealandball",
+        "ⁱᶜᵉ³"
+    ]
+}
+
+# --- Load custom presets ---
+def load_presets():
+    if os.path.exists(PRESETS_FILE):
+        with open(PRESETS_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_presets(presets):
     with open(PRESETS_FILE, "w") as f:
-        json.dump(roll_presets, f, indent=2)
+        json.dump(presets, f, indent=2)
+
+custom_presets = load_presets()
+
 
 REMINDERS_FILE = "reminders.json"
 
@@ -456,17 +498,30 @@ async def cancel_reminder(ctx, number: int):
         f"Reminder #{number} has been cancelled: <t:{int(reminder_to_cancel['time'])}:F>{task_text}"
     )
 
-# ---- Command to create preset ----
+# --- Command to create presets ---
 @bot.command(name="create_roll_preset")
-async def create_roll_preset(ctx, preset_name: str, *, content: str):
-    options = [item.strip() for item in content.split(",") if item.strip()]
-    if not options:
-        await ctx.send("❌ You must provide at least one option.")
-        return
+async def create_roll_preset(ctx, name: str, *, content: str):
+    options = [opt.strip() for opt in content.split(",")]
+    custom_presets[name] = options
+    save_presets(custom_presets)
+    await ctx.send(f"Preset **{name}** created with {len(options)} options!")
 
-    roll_presets[preset_name.lower()] = options
-    save_presets()
-    await ctx.send(f"✅ Preset `{preset_name}` created with {len(options)} options.")
+# --- Command to use rpreset ---
+@bot.command(name="rpreset")
+async def rpreset(ctx, *, template: str):
+    output = template
+
+    # Merge built-ins and custom presets
+    all_presets = {**builtin_presets, **custom_presets}
+
+    # Replace placeholders
+    for preset_name, preset_values in all_presets.items():
+        placeholder = f"({preset_name})"
+        while placeholder in output:
+            choice = random.choice(preset_values)
+            output = output.replace(placeholder, choice, 1)
+
+    await ctx.send(output)
 
 # ---- Command to list presets ----
 @bot.command(name="list_roll_presets")
@@ -477,7 +532,7 @@ async def list_roll_presets(ctx):
     preset_list = ", ".join(roll_presets.keys())
     await ctx.send(f"🎲 Available roll presets: {preset_list}")
 
-# ---- Custom command handler for <preset_name> ----
+# ---- Custom command handler for <preset_name ----
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -534,19 +589,6 @@ builtin_presets = {
         "ⁱᶜᵉ³"
     ]
 }
-
-@bot.command(name="rpreset")
-async def rpreset(ctx, *, template: str):
-    output = template
-
-    # Keep replacing until no placeholders left
-    for preset_name, preset_values in builtin_presets.items():
-        placeholder = f"({preset_name})"
-        while placeholder in output:
-            choice = random.choice(preset_values)
-            output = output.replace(placeholder, choice, 1)
-
-    await ctx.send(output)
 
 # ---
 # Code Merged from Another bot
