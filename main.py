@@ -161,11 +161,16 @@ async def on_message_delete(message):
 
 @bot.command(help="Greets the user")
 async def hello(ctx):
-    await ctx.send(f"Hello, {ctx.author.name}!")
+    await ctx.send(f"Hello, {ctx.author.name}, kinda weird talking to a bot but you do you")
 
 @bot.command(help="Checks if the bot is running")
 async def ping(ctx):
     await ctx.send("Pong!")
+
+@bot.command(name="echo")
+async def echo(ctx, *, message: str):
+    await ctx.message.delete()
+    await ctx.send(message)
 
 @bot.command(help="Wrong bot, check out the one literally called Chat Revival Bot")
 async def revive(ctx):
