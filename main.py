@@ -64,6 +64,8 @@ def save_presets(presets):
         json.dump(presets, f, indent=2)
 
 custom_presets = load_presets()
+# Merge built-in & custom for places that expect `roll_presets`
+roll_presets = {**builtin_presets, **custom_presets}
 
 
 REMINDERS_FILE = "reminders.json"
@@ -509,6 +511,11 @@ async def create_roll_preset(ctx, name: str, *, content: str):
     options = [opt.strip() for opt in content.split(",")]
     custom_presets[name] = options
     save_presets(custom_presets)
+
+    # keep the merged view in sync
+    global roll_presets
+    roll_presets = {**builtin_presets, **custom_presets}
+
     await ctx.send(f"Preset **{name}** created with {len(options)} options!")
 
 # --- Command to use rpreset ---
