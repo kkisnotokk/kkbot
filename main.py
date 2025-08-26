@@ -10,109 +10,30 @@ import aiohttp
 import json
 import time
 
-# --- Tierlist system (persistent, default emoji mapping, private/public) ---
-import json
-import os
-
 TIERLISTS_FILE = "tierlists.json"
 
+# Load tierlists from file
 def load_tierlists():
     if os.path.exists(TIERLISTS_FILE):
         with open(TIERLISTS_FILE, "r") as f:
             return json.load(f)
     return {}
 
+# Save tierlists to file
 def save_tierlists(data):
     with open(TIERLISTS_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
-# Structure:
-# tierlists = {
-#   "<id>": {
-#       "owner": "<user_id_as_str>",
-#       "private": True|False,
-#       "is_default": True|False,
-#       "tiers": { "s": [...], "a": [...], ... }  # or custom names
-#   }
-# }
+        json.dump(data, f, indent=4)
 
 tierlists = load_tierlists()
 
-# Emoji display map for default lists
-DEFAULT_DISPLAY_MAP = {
-    "s": "🇸 🔴",
-    "a": "🇦 🟠",
-    "b": "🇧 🟠",
-    "c": "🇨 🟡",
-    "d": "🇩 🟢",
-    "e": "🇪 🟢",
-    "f": "🇫 🔵",
-}
-# Reverse map to resolve emoji tokens to keys (e.g. '🇸' -> 's', '🔴' -> 's')
-EMOJI_TO_KEY = {}
-for k, v in DEFAULT_DISPLAY_MAP.items():
-    for token in v.split():
-        EMOJI_TO_KEY[token] = k
-
-def format_tierlist(tid, tl):
-    """Return a string representation of a tierlist (with emoji labels for default)."""
-    lines = [f"--Tierlist (ID: {tid})--"]
-    if tl.get("is_default"):
-        # maintain order s,a,b,c,d,e,f
-        for key in ["s","a","b","c","d","e","f"]:
-            if key in tl["tiers"]:
-                items = tl["tiers"][key]
-                label = DEFAULT_DISPLAY_MAP.get(key, key.upper())
-                lines.append(f"{label}: {', '.join(items) if items else '(empty)'}")
-    else:
-        # custom tier order follows insertion order of dict
-        for tier_name, items in tl["tiers"].items():
-            lines.append(f"{tier_name}: {', '.join(items) if items else '(empty)'}")
-    return "\n".join(lines)
-
-def normalize_tierlist_id(tid):
-    return str(tid)
-
-def resolve_tier_key(tl, raw_tier_input):
-    """
-    Given a tierlist object and user-supplied tier string, return the
-    internal tier key (exact key used in tl['tiers']) or None.
-    For default lists, accepts 's' or 'S' or '🇸' or '🔴' or '🇸 🔴'.
-    For custom lists, accepts case-insensitive exact matches to tier names.
-    """
-    if raw_tier_input is None:
-        return None
-    t = raw_tier_input.strip()
-    if not t:
-        return None
-
-    # if default list: internal keys are single-letter lowercases
-    if tl.get("is_default"):
-        s = t.lower()
-        # direct single-letter match
-        if len(s) == 1 and s in tl["tiers"]:
-            return s
-        # first-letter (in case user typed "S-tier" etc.)
-        first = s[0]
-        if first in tl["tiers"]:
-            return first
-        # check for emoji tokens inside the input
-        for ch in t:
-            if ch in EMOJI_TO_KEY:
-                return EMOJI_TO_KEY[ch]
-        # maybe input is the full label "🇸 🔴"
-        normalized = " ".join(t.split())
-        for k, lab in DEFAULT_DISPLAY_MAP.items():
-            if normalized == lab:
-                return k
-        return None
-    else:
-        # custom tiers: match case-insensitive to tier name keys
-        s = t.lower()
-        for key in tl["tiers"].keys():
-            if s == key.lower():
-                return key
-        return None
+def format_tierlist(tierlist_id, tierlist):
+    output = f"--Tierlist (ID: {tierlist_id})--\n"
+    for tier, items in tierlist["tiers"].items():
+        if items:
+            output += f"{tier}: {', '.join(items)}\n"
+        else:
+            output += f"{tier}: (empty)\n"
+    return output
 
 PRESETS_FILE = "presets.json"
 
@@ -170,35 +91,79 @@ custom_presets = load_presets()
 # Merge built-in & custom for places that expect `roll_presets`
 roll_presets = {**builtin_presets, **custom_presets}
 
+
+REMINDERS_FILE = "reminders.json"
+
+if os.path.exists(REMINDERS_FILE):
+    with open(REMINDERS_FILE, "r") as f:
+        reminders = json.load(f)
+else:
+    reminders = []
+
+def save_reminders():
+    with open(REMINDERS_FILE, "w") as f:
+        json.dump(reminders, f)
+
+async def reminder_loop():
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        now = time.time()
+        due = [r for r in reminders if r["time"] <= now]
+        for r in due:
+            try:
+                channel = bot.get_channel(r["channel"])
+                if channel:
+                    user = f"<@{r['user']}>"
+                    task = f" Reminder: {r['task']}" if r["task"] else ""
+                    await channel.send(f"WEWOWEWO {user}{task}")
+            except Exception as e:
+                print(f"Error sending reminder: {e}")
+            reminders.remove(r)
+            save_reminders()
+        await asyncio.sleep(5)
+
+# Load .env token
+load_dotenv()
+TOKEN = os.getenv("TOKEN")
+
+# Setup bot
+intents = discord.Intents.default()
+intents.message_content = True  # needed for on_message and content parsing
+
+bot = commands.Bot(
+    command_prefix="<",
+    intents=intents,
+    help_command=commands.DefaultHelpCommand(),
+)
+
+sniped_messages = {}
+rigged_responses = {}
+
 # ---------------------------
 # EVENTS
 # ---------------------------
+
+@bot.event
+async def on_ready():
+    print(f"✅ Logged in as {bot.user}!")
+    bot.loop.create_task(reminder_loop())
 
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
 
-    # Handle <echo manually
+    # Manually handle <echo
     try:
         if message.content.startswith('<echo'):
             await message.delete()
             text_to_echo = message.content[len('<echo'):].strip()
             if text_to_echo:
                 await message.channel.send(text_to_echo)
-                return
     except Exception as e:
         print(f"[on_message error] {e}")
 
-    # Handle roll preset shortcut (<presetname)
-    if message.content.startswith("<"):
-        cmd_name = message.content[1:].lower()  # strip '<' and lowercase
-        if cmd_name in roll_presets:
-            choice = random.choice(roll_presets[cmd_name])
-            await message.channel.send(f"🎲 {message.author.mention}, your roll from `{cmd_name}` is: **{choice}**")
-            return
-
-    # Let normal commands work
+    # Let other commands work as normal
     await bot.process_commands(message)
 
 @bot.event
@@ -661,113 +626,85 @@ builtin_presets = {
     ]
 }
 
-@bot.command(name="create", help="Create a tierlist: <create tierlist (id) (private? yes/no) (default|comma,separated,tiernames)>")
-async def create_tierlist(ctx, arg, tierlist_id: str, private_flag: str, *, tiers: str):
-    # expects: <create tierlist 1 yes default>  OR <create tierlist 2 no A-tier,B-tier>
+@bot.command(name="create", help="Create a tierlist: <create tierlist (id) (comma-separated tiers or 'default')>")
+async def create_tierlist(ctx, arg, tierlist_id: str, *, tiers: str):
     if arg.lower() != "tierlist":
-        await ctx.send("Usage: `<create tierlist (id) (private? yes/no) (default|tier1,tier2,...)`")
         return
 
-    tid = normalize_tierlist_id(tierlist_id)
-    if tid in tierlists:
-        await ctx.send(f"A tierlist with ID `{tid}` already exists.")
+    if tierlist_id in tierlists:
+        await ctx.send(f"A tierlist with ID `{tierlist_id}` already exists!")
         return
 
-    priv = private_flag.lower() in ("yes", "y", "true", "1")
-    is_def = tiers.lower().strip() == "default"
-
-    if is_def:
-        keys = ["s","a","b","c","d","e","f"]
-        tiers_dict = {k: [] for k in keys}
+    if tiers.lower() == "default":
+        tier_names = ["S", "A", "B", "C", "D", "E", "F"]
     else:
-        # custom names (keep original casing as keys)
-        names = [t.strip() for t in tiers.split(",") if t.strip()]
-        if not names:
-            await ctx.send("You must supply at least one tier name, or use 'default'.")
-            return
-        tiers_dict = {name: [] for name in names}
+        tier_names = [t.strip() for t in tiers.split(",")]
 
-    tierlists[tid] = {
+    tierlists[tierlist_id] = {
         "owner": str(ctx.author.id),
-        "private": bool(priv),
-        "is_default": bool(is_def),
-        "tiers": tiers_dict
+        "tiers": {t: [] for t in tier_names}
     }
-    save_tierlists(tierlists)
-    await ctx.send(format_tierlist(tid, tierlists[tid]))
 
-@bot.command(name="rank", help="Rank an item in a tierlist: <rank (id) (item) (tier)> — tier can be letter/emoji for default lists")
+    save_tierlists(tierlists)
+    await ctx.send(format_tierlist(tierlist_id, tierlists[tierlist_id]))
+
+@bot.command(name="rank", help="Rank an item in a tierlist: <rank (id) (item) (tier)>")
 async def rank_item(ctx, tierlist_id: str, item: str, *, tier: str):
-    tid = normalize_tierlist_id(tierlist_id)
-    if tid not in tierlists:
-        await ctx.send("That tierlist ID does not exist.")
+    if tierlist_id not in tierlists:
+        await ctx.send("That tierlist does not exist.")
+        return
+    if str(ctx.author.id) != tierlists[tierlist_id]["owner"]:
+        await ctx.send("Only the creator of this tierlist can edit it.")
+        return
+    if tier not in tierlists[tierlist_id]["tiers"]:
+        await ctx.send("That tier does not exist in this tierlist.")
         return
 
-    tl = tierlists[tid]
-    # permissions: if private, only owner can edit; if public, anyone can edit
-    if tl.get("private") and str(ctx.author.id) != str(tl.get("owner")):
-        await ctx.send("This tierlist is private — only the creator can edit it.")
-        return
+    # Remove from all tiers first
+    for t in tierlists[tierlist_id]["tiers"].values():
+        if item in t:
+            t.remove(item)
 
-    key = resolve_tier_key(tl, tier)
-    if key is None:
-        await ctx.send("Could not resolve that tier name/emoji. Check the tier list with `<viewtierlist`.")
-        return
-
-    # remove item from any tier (case-insensitive match)
-    for k, items in tl["tiers"].items():
-        tl["tiers"][k] = [x for x in items if x.lower() != item.lower()]
-
-    # append to new tier (use internal key for default lists; for custom lists key can be full name)
-    tl["tiers"][key].append(item)
+    # Add to new tier
+    tierlists[tierlist_id]["tiers"][tier].append(item)
     save_tierlists(tierlists)
-    await ctx.send(format_tierlist(tid, tl))
+    await ctx.send(format_tierlist(tierlist_id, tierlists[tierlist_id]))
 
 @bot.command(name="removeitem", help="Remove an item from a tierlist: <removeitem (id) (item)>")
 async def remove_item(ctx, tierlist_id: str, *, item: str):
-    tid = normalize_tierlist_id(tierlist_id)
-    if tid not in tierlists:
-        await ctx.send("That tierlist ID does not exist.")
+    if tierlist_id not in tierlists:
+        await ctx.send("That tierlist does not exist.")
         return
-    tl = tierlists[tid]
-    if tl.get("private") and str(ctx.author.id) != str(tl.get("owner")):
-        await ctx.send("This tierlist is private — only the creator can edit it.")
+    if str(ctx.author.id) != tierlists[tierlist_id]["owner"]:
+        await ctx.send("Only the creator of this tierlist can edit it.")
         return
 
-    removed = False
-    for k, items in tl["tiers"].items():
-        new_items = [x for x in items if x.lower() != item.lower()]
-        if len(new_items) != len(items):
-            removed = True
-        tl["tiers"][k] = new_items
+    for t in tierlists[tierlist_id]["tiers"].values():
+        if item in t:
+            t.remove(item)
 
-    if removed:
-        save_tierlists(tierlists)
-        await ctx.send(format_tierlist(tid, tl))
-    else:
-        await ctx.send(f"'{item}' was not found in tierlist {tid}.")
-
-@bot.command(name="deletetierlist", help="Delete a tierlist: <deletetierlist (id)> (creator only)")
-async def delete_tierlist(ctx, tierlist_id: str):
-    tid = normalize_tierlist_id(tierlist_id)
-    if tid not in tierlists:
-        await ctx.send("That tierlist ID does not exist.")
-        return
-    if str(ctx.author.id) != str(tierlists[tid]["owner"]):
-        await ctx.send("Only the creator can delete this tierlist.")
-        return
-    del tierlists[tid]
     save_tierlists(tierlists)
-    await ctx.send(f"Tierlist `{tid}` has been deleted.")
+    await ctx.send(format_tierlist(tierlist_id, tierlists[tierlist_id]))
+
+@bot.command(name="deletetierlist", help="Delete a tierlist: <deletetierlist (id)>")
+async def delete_tierlist(ctx, tierlist_id: str):
+    if tierlist_id not in tierlists:
+        await ctx.send("That tierlist does not exist.")
+        return
+    if str(ctx.author.id) != tierlists[tierlist_id]["owner"]:
+        await ctx.send("Only the creator of this tierlist can delete it.")
+        return
+
+    del tierlists[tierlist_id]
+    save_tierlists(tierlists)
+    await ctx.send(f"Tierlist `{tierlist_id}` deleted.")
 
 @bot.command(name="viewtierlist", help="View a tierlist: <viewtierlist (id)>")
 async def view_tierlist(ctx, tierlist_id: str):
-    tid = normalize_tierlist_id(tierlist_id)
-    if tid not in tierlists:
-        await ctx.send("That tierlist ID does not exist.")
+    if tierlist_id not in tierlists:
+        await ctx.send("That tierlist does not exist.")
         return
-    await ctx.send(format_tierlist(tid, tierlists[tid]))
-
+    await ctx.send(format_tierlist(tierlist_id, tierlists[tierlist_id]))
     
 # ---
 # Code Merged from Another bot
