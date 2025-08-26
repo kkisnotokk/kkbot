@@ -170,79 +170,35 @@ custom_presets = load_presets()
 # Merge built-in & custom for places that expect `roll_presets`
 roll_presets = {**builtin_presets, **custom_presets}
 
-
-REMINDERS_FILE = "reminders.json"
-
-if os.path.exists(REMINDERS_FILE):
-    with open(REMINDERS_FILE, "r") as f:
-        reminders = json.load(f)
-else:
-    reminders = []
-
-def save_reminders():
-    with open(REMINDERS_FILE, "w") as f:
-        json.dump(reminders, f)
-
-async def reminder_loop():
-    await bot.wait_until_ready()
-    while not bot.is_closed():
-        now = time.time()
-        due = [r for r in reminders if r["time"] <= now]
-        for r in due:
-            try:
-                channel = bot.get_channel(r["channel"])
-                if channel:
-                    user = f"<@{r['user']}>"
-                    task = f" Reminder: {r['task']}" if r["task"] else ""
-                    await channel.send(f"WEWOWEWO {user}{task}")
-            except Exception as e:
-                print(f"Error sending reminder: {e}")
-            reminders.remove(r)
-            save_reminders()
-        await asyncio.sleep(5)
-
-# Load .env token
-load_dotenv()
-TOKEN = os.getenv("TOKEN")
-
-# Setup bot
-intents = discord.Intents.default()
-intents.message_content = True  # needed for on_message and content parsing
-
-bot = commands.Bot(
-    command_prefix="<",
-    intents=intents,
-    help_command=commands.DefaultHelpCommand(),
-)
-
-sniped_messages = {}
-rigged_responses = {}
-
 # ---------------------------
 # EVENTS
 # ---------------------------
-
-@bot.event
-async def on_ready():
-    print(f"✅ Logged in as {bot.user}!")
-    bot.loop.create_task(reminder_loop())
 
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
 
-    # Manually handle <echo
+    # Handle <echo manually
     try:
         if message.content.startswith('<echo'):
             await message.delete()
             text_to_echo = message.content[len('<echo'):].strip()
             if text_to_echo:
                 await message.channel.send(text_to_echo)
+                return
     except Exception as e:
         print(f"[on_message error] {e}")
 
-    # Let other commands work as normal
+    # Handle roll preset shortcut (<presetname)
+    if message.content.startswith("<"):
+        cmd_name = message.content[1:].lower()  # strip '<' and lowercase
+        if cmd_name in roll_presets:
+            choice = random.choice(roll_presets[cmd_name])
+            await message.channel.send(f"🎲 {message.author.mention}, your roll from `{cmd_name}` is: **{choice}**")
+            return
+
+    # Let normal commands work
     await bot.process_commands(message)
 
 @bot.event
