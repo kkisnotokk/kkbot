@@ -10,6 +10,30 @@ import aiohttp
 import json
 import time
 
+TIERLISTS_FILE = "tierlists.json"
+
+# Load tierlists from file
+def load_tierlists():
+    if os.path.exists(TIERLISTS_FILE):
+        with open(TIERLISTS_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+# Save tierlists to file
+def save_tierlists(data):
+    with open(TIERLISTS_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+tierlists = load_tierlists()
+
+def format_tierlist(tierlist_id, tierlist):
+    output = f"--Tierlist (ID: {tierlist_id})--\n"
+    for tier, items in tierlist["tiers"].items():
+        if items:
+            output += f"{tier}: {', '.join(items)}\n"
+        else:
+            output += f"{tier}: (empty)\n"
+    return output
 
 PRESETS_FILE = "presets.json"
 
@@ -602,6 +626,93 @@ builtin_presets = {
     ]
 }
 
+@commands.command(name="create", help="Create a tierlist: <create tierlist (id) (comma-separated tiers or 'default')>")
+async def create_tierlist(ctx, arg, tierlist_id: str, *, tiers: str):
+    if arg.lower() != "tierlist":
+        return
+
+    if tierlist_id in tierlists:
+        await ctx.send(f"A tierlist with ID `{tierlist_id}` already exists!")
+        return
+
+    if tiers.lower() == "default":
+        tier_names = ["S", "A", "B", "C", "D", "F"]
+    else:
+        tier_names = [t.strip() for t in tiers.split(",")]
+
+    tierlists[tierlist_id] = {
+        "owner": str(ctx.author.id),
+        "tiers": {t: [] for t in tier_names}
+    }
+
+    save_tierlists(tierlists)
+    await ctx.send(format_tierlist(tierlist_id, tierlists[tierlist_id]))
+
+@commands.command(name="rank", help="Rank an item in a tierlist: <rank (id) (item) (tier)>")
+async def rank_item(ctx, tierlist_id: str, item: str, *, tier: str):
+    if tierlist_id not in tierlists:
+        await ctx.send("That tierlist does not exist.")
+        return
+    if str(ctx.author.id) != tierlists[tierlist_id]["owner"]:
+        await ctx.send("Only the creator of this tierlist can edit it.")
+        return
+    if tier not in tierlists[tierlist_id]["tiers"]:
+        await ctx.send("That tier does not exist in this tierlist.")
+        return
+
+    # Remove from all tiers first
+    for t in tierlists[tierlist_id]["tiers"].values():
+        if item in t:
+            t.remove(item)
+
+    # Add to new tier
+    tierlists[tierlist_id]["tiers"][tier].append(item)
+    save_tierlists(tierlists)
+    await ctx.send(format_tierlist(tierlist_id, tierlists[tierlist_id]))
+
+@commands.command(name="removeitem", help="Remove an item from a tierlist: <removeitem (id) (item)>")
+async def remove_item(ctx, tierlist_id: str, *, item: str):
+    if tierlist_id not in tierlists:
+        await ctx.send("That tierlist does not exist.")
+        return
+    if str(ctx.author.id) != tierlists[tierlist_id]["owner"]:
+        await ctx.send("Only the creator of this tierlist can edit it.")
+        return
+
+    for t in tierlists[tierlist_id]["tiers"].values():
+        if item in t:
+            t.remove(item)
+
+    save_tierlists(tierlists)
+    await ctx.send(format_tierlist(tierlist_id, tierlists[tierlist_id]))
+
+@commands.command(name="deletetierlist", help="Delete a tierlist: <deletetierlist (id)>")
+async def delete_tierlist(ctx, tierlist_id: str):
+    if tierlist_id not in tierlists:
+        await ctx.send("That tierlist does not exist.")
+        return
+    if str(ctx.author.id) != tierlists[tierlist_id]["owner"]:
+        await ctx.send("Only the creator of this tierlist can delete it.")
+        return
+
+    del tierlists[tierlist_id]
+    save_tierlists(tierlists)
+    await ctx.send(f"Tierlist `{tierlist_id}` deleted.")
+
+@commands.command(name="viewtierlist", help="View a tierlist: <viewtierlist (id)>")
+async def view_tierlist(ctx, tierlist_id: str):
+    if tierlist_id not in tierlists:
+        await ctx.send("That tierlist does not exist.")
+        return
+    await ctx.send(format_tierlist(tierlist_id, tierlists[tierlist_id]))
+
+async def setup(bot):
+    bot.add_command(create_tierlist)
+    bot.add_command(rank_item)
+    bot.add_command(remove_item)
+    bot.add_command(delete_tierlist)
+    bot.add_command(view_tierlist)
+    
 # ---
 # Code Merged from Another bot
 # ---
