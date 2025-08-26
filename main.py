@@ -626,7 +626,7 @@ builtin_presets = {
     ]
 }
 
-@commands.command(name="create", help="Create a tierlist: <create tierlist (id) (comma-separated tiers or 'default')>")
+@bot.command(name="create", help="Create a tierlist: <create tierlist (id) (comma-separated tiers or 'default')>")
 async def create_tierlist(ctx, arg, tierlist_id: str, *, tiers: str):
     if arg.lower() != "tierlist":
         return
@@ -648,7 +648,7 @@ async def create_tierlist(ctx, arg, tierlist_id: str, *, tiers: str):
     save_tierlists(tierlists)
     await ctx.send(format_tierlist(tierlist_id, tierlists[tierlist_id]))
 
-@commands.command(name="rank", help="Rank an item in a tierlist: <rank (id) (item) (tier)>")
+@bot.command(name="rank", help="Rank an item in a tierlist: <rank (id) (item) (tier)>")
 async def rank_item(ctx, tierlist_id: str, item: str, *, tier: str):
     if tierlist_id not in tierlists:
         await ctx.send("That tierlist does not exist.")
@@ -670,7 +670,7 @@ async def rank_item(ctx, tierlist_id: str, item: str, *, tier: str):
     save_tierlists(tierlists)
     await ctx.send(format_tierlist(tierlist_id, tierlists[tierlist_id]))
 
-@commands.command(name="removeitem", help="Remove an item from a tierlist: <removeitem (id) (item)>")
+@bot.command(name="removeitem", help="Remove an item from a tierlist: <removeitem (id) (item)>")
 async def remove_item(ctx, tierlist_id: str, *, item: str):
     if tierlist_id not in tierlists:
         await ctx.send("That tierlist does not exist.")
@@ -686,7 +686,7 @@ async def remove_item(ctx, tierlist_id: str, *, item: str):
     save_tierlists(tierlists)
     await ctx.send(format_tierlist(tierlist_id, tierlists[tierlist_id]))
 
-@commands.command(name="deletetierlist", help="Delete a tierlist: <deletetierlist (id)>")
+@bot.command(name="deletetierlist", help="Delete a tierlist: <deletetierlist (id)>")
 async def delete_tierlist(ctx, tierlist_id: str):
     if tierlist_id not in tierlists:
         await ctx.send("That tierlist does not exist.")
@@ -699,19 +699,12 @@ async def delete_tierlist(ctx, tierlist_id: str):
     save_tierlists(tierlists)
     await ctx.send(f"Tierlist `{tierlist_id}` deleted.")
 
-@commands.command(name="viewtierlist", help="View a tierlist: <viewtierlist (id)>")
+@bot.command(name="viewtierlist", help="View a tierlist: <viewtierlist (id)>")
 async def view_tierlist(ctx, tierlist_id: str):
     if tierlist_id not in tierlists:
         await ctx.send("That tierlist does not exist.")
         return
     await ctx.send(format_tierlist(tierlist_id, tierlists[tierlist_id]))
-
-async def setup(bot):
-    bot.add_command(create_tierlist)
-    bot.add_command(rank_item)
-    bot.add_command(remove_item)
-    bot.add_command(delete_tierlist)
-    bot.add_command(view_tierlist)
     
 # ---
 # Code Merged from Another bot
