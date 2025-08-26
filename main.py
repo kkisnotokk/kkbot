@@ -636,7 +636,7 @@ async def create_tierlist(ctx, arg, tierlist_id: str, *, tiers: str):
         return
 
     if tiers.lower() == "default":
-        tier_names = ["S", "A", "B", "C", "D", "F"]
+        tier_names = ["S", "A", "B", "C", "D", "E", "F"]
     else:
         tier_names = [t.strip() for t in tiers.split(",")]
 
