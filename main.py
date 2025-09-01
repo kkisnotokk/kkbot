@@ -35,12 +35,13 @@ def format_tierlist(tierlist_id, tierlist):
             output += f"{tier}: (empty)\n"
     return output
 
-PRESETS_FILE = "presets.json"
+# Presets are now server-specific
+# Structure: { guild_id: { preset_name: [values...] } }
+server_presets = {}
 
-# --- Built-in presets ---
-builtin_presets = {
-    "rplyr": [f"player {str(i).zfill(2)}" for i in range(1, 41)],  # player 01 - player 40
-    "rma": [
+# Built-in presets (always available across all servers)
+built_in_presets = {
+    "rplyr": [
         "king blunderer",
         "apollix",
         "Kuyicon",
@@ -73,24 +74,16 @@ builtin_presets = {
         "vivid",
         "Sealandball",
         "ⁱᶜᵉ³"
-    ]
+    ],
+    "rma": ["player 01", "player 02", "player 03", "player 04", "player 05",
+            "player 06", "player 07", "player 08", "player 09", "player 10",
+            "player 11", "player 12", "player 13", "player 14", "player 15",
+            "player 16", "player 17", "player 18", "player 19", "player 20",
+            "player 21", "player 22", "player 23", "player 24", "player 25",
+            "player 26", "player 27", "player 28", "player 29", "player 30",
+            "player 31", "player 32", "player 33", "player 34", "player 35",
+            "player 36", "player 37", "player 38", "player 39", "player 40"]
 }
-
-# --- Load custom presets ---
-def load_presets():
-    if os.path.exists(PRESETS_FILE):
-        with open(PRESETS_FILE, "r") as f:
-            return json.load(f)
-    return {}
-
-def save_presets(presets):
-    with open(PRESETS_FILE, "w") as f:
-        json.dump(presets, f, indent=2)
-
-custom_presets = load_presets()
-# Merge built-in & custom for places that expect `roll_presets`
-roll_presets = {**builtin_presets, **custom_presets}
-
 
 REMINDERS_FILE = "reminders.json"
 
@@ -529,102 +522,65 @@ async def cancel_reminder(ctx, number: int):
         f"Reminder #{number} has been cancelled: <t:{int(reminder_to_cancel['time'])}:F>{task_text}"
     )
 
-# --- Command to create presets ---
-@bot.command(name="create_roll_preset")
-async def create_roll_preset(ctx, name: str, *, content: str):
-    options = [opt.strip() for opt in content.split(",")]
-    custom_presets[name] = options
-    save_presets(custom_presets)
+@bot.command(name="addpreset", help="Create a pool of options that kkbot can roll from. Usage: <addpreset {preset name} {poll of options seperated by commas}")
+async def addpreset(ctx, name: str, *, values: str):
+    """Add a new server-specific preset."""
+    guild_id = ctx.guild.id
+    if guild_id not in server_presets:
+        server_presets[guild_id] = {}
 
-    # keep the merged view in sync
-    global roll_presets
-    roll_presets = {**builtin_presets, **custom_presets}
+    values_list = [v.strip() for v in values.split(",")]
+    server_presets[guild_id][name] = values_list
+    await ctx.send(f"Preset `{name}` added for this server with {len(values_list)} values.")
 
-    await ctx.send(f"Preset **{name}** created with {len(options)} options!")
+@bot.command(name="deletepreset", help="Delete a preset. Usage: <deletepreset (preset name}")
+async def deletepreset(ctx, name: str):
+    """Delete a preset in this server."""
+    guild_id = ctx.guild.id
+    if guild_id not in server_presets or name not in server_presets[guild_id]:
+        await ctx.send(f"Preset `{name}` does not exist in this server.")
+        return
 
-# --- Command to use rpreset ---
-@bot.command(name="rpreset")
-async def rpreset(ctx, *, template: str):
-    output = template
+    del server_presets[guild_id][name]
+    await ctx.send(f"Preset `{name}` deleted from this server.")
 
-    # Merge built-ins and custom presets
-    all_presets = {**builtin_presets, **custom_presets}
-
-    # Replace placeholders
-    for preset_name, preset_values in all_presets.items():
-        placeholder = f"({preset_name})"
-        while placeholder in output:
-            choice = random.choice(preset_values)
-            output = output.replace(placeholder, choice, 1)
-
-    await ctx.send(output)
-
-# ---- Command to list presets ----
-@bot.command(name="list_roll_presets")
+@bot.command(name="list_roll_presets", help="list all presets in your server")
 async def list_roll_presets(ctx):
-    if not roll_presets:
-        await ctx.send("📭 No roll presets saved yet.")
-        return
-    preset_list = ", ".join(roll_presets.keys())
-    await ctx.send(f"🎲 Available roll presets: {preset_list}")
+    """List available presets (server + built-in)."""
+    guild_id = ctx.guild.id
+    server_list = list(server_presets.get(guild_id, {}).keys())
+    builtin_list = list(built_in_presets.keys())
 
-# ---- Custom command handler for <preset_name ----
-@bot.event
-async def on_message(message):
-    if message.author.bot:
-        return
+    msg = "**Available presets:**\n"
+    if server_list:
+        msg += f"Server-specific: {', '.join(server_list)}\n"
+    else:
+        msg += "Server-specific: (none)\n"
 
-    ctx = await bot.get_context(message)
+    msg += f"Built-in: {', '.join(builtin_list)}"
+    await ctx.send(msg)
 
-    # Check if user typed a preset command
-    if message.content.startswith("<"):
-        cmd_name = message.content[1:].lower()  # strip '<' and lowercase
-        if cmd_name in roll_presets:
-            import random
-            choice = random.choice(roll_presets[cmd_name])
-            await message.channel.send(f"🎲 {message.author.mention}, your roll from `{cmd_name}` is: **{choice}**")
-            return
+@bot.command(name="rpreset", help="Replace (preset_name) with random values from that preset.")
+async def rpreset(ctx, *, text: str):
+    """Replace (preset_name) with random values from that preset."""
+    guild_id = ctx.guild.id
 
-    await bot.process_commands(message)
+    def replace_preset(match):
+        preset_name = match.group(1)
+        # Check server-specific presets first
+        if guild_id in server_presets and preset_name in server_presets[guild_id]:
+            return random.choice(server_presets[guild_id][preset_name])
+        # Then check built-ins
+        elif preset_name in built_in_presets:
+            return random.choice(built_in_presets[preset_name])
+        else:
+            return f"(preset `{preset_name}` doesn't exist)"
 
-# --- Built-in presets ---
-builtin_presets = {
-    "rplyr": [f"player {str(i).zfill(2)}" for i in range(1, 41)],  # player 01 - player 40
-    "rma": [
-        "king blunderer",
-        "apollix",
-        "Kuyicon",
-        "Emily",
-        "silvy",
-        "no one",
-        "Pezut",
-        "Chezmosis",
-        "Py Rick",
-        "M",
-        "TampliteSK",
-        "Almostgood",
-        "Anti",
-        "Chicken Nugget",
-        "Ral",
-        "darth vader",
-        "erixero",
-        "Beniu1305",
-        "Ghoda",
-        "jsaidoru",
-        "Surviv_34",
-        "Mrsir_real",
-        "Kan",
-        "!kk!",
-        "ManosSef",
-        "myloRAHH",
-        "NotBaltic",
-        "sted",
-        "SudokuFan",
-        "vivid",
-        "Sealandball",
-        "ⁱᶜᵉ³"
-    ]
-}
+    import re
+    pattern = re.compile(r"\((.*?)\)")
+    result = pattern.sub(replace_preset, text)
+
+    await ctx.send(result)
 
 @bot.command(name="create", help="Create a tierlist: <create tierlist (id) (comma-separated tiers or 'default')>")
 async def create_tierlist(ctx, arg, tierlist_id: str, *, tiers: str):
