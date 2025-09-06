@@ -307,7 +307,7 @@ async def snipe(ctx):
     if snipe_data:
         time_diff = int((discord.utils.utcnow() - snipe_data["time"]).total_seconds())
         await ctx.send(
-            f"Deleted message by **{snipe_data['author']}** ({time_diff} seconds ago):\n> {snipe_data['content']}"
+            f"# Deleted message by **{snipe_data['author']}** ({time_diff} seconds ago):\n---\n>>> {snipe_data['content']}"
         )
     else:
         await ctx.send("There's nothing to snipe, stop being paranoid lmao")
