@@ -131,6 +131,7 @@ bot = commands.Bot(
 
 sniped_messages = {}
 rigged_responses = {}
+STARTING_TIME = 12 * 60 * 60  # 12 hours
 chess_games = {}
 
 # ---------------------------
@@ -666,44 +667,46 @@ async def view_tierlist(ctx, tierlist_id: str):
 @bot.command(help="Start a chess timer game. Usage: <startgame [game_id]")
 async def startgame(ctx, game_id: str):
     if game_id in chess_games:
-        await ctx.send(f"NEIN- Game `{game_id}` already exists you bum")
+        await ctx.send(f"NEIN game `{game_id}` already exists.")
         return
-    
-    chess_games[game_id] = {
-        "white": {"time": 0.0, "running": True},
-        "black": {"time": 0.0, "running": False},
-        "last_update": time.time()
-    }
-    await ctx.send(f"Game `{game_id}` created! White’s timer is running. Good luck.")
 
-@bot.command(help="End current turn and switch sides. Usage: <endturn [game_id]")
+    chess_games[game_id] = {
+        "white": {"time": STARTING_TIME, "running": True},
+        "black": {"time": STARTING_TIME, "running": False},
+        "last_update": time.time(),
+        "creator": ctx.author.id,
+    }
+
+    await ctx.send(f"Game `{game_id}` started! White's clock (12h) is now running.")
+
+@bot.command(help="End your turn and switch clocks. Usage: <endturn [game_id]")
 async def endturn(ctx, game_id: str):
     if game_id not in chess_games:
-        await ctx.send(f"Gang what are you on game `{game_id}` does not exist")
+        await ctx.send(f"Gang what are we on- game `{game_id}` does not exist.")
         return
-    
+
     game = chess_games[game_id]
     now = time.time()
     elapsed = now - game["last_update"]
 
     if game["white"]["running"]:
-        game["white"]["time"] += elapsed
+        game["white"]["time"] -= elapsed
         game["white"]["running"] = False
         game["black"]["running"] = True
-        side = "Black"
+        side = "Black ⚫"
     else:
-        game["black"]["time"] += elapsed
+        game["black"]["time"] -= elapsed
         game["black"]["running"] = False
         game["white"]["running"] = True
-        side = "White"
-    
-    game["last_update"] = now
-    await ctx.send(f"Turn ended. {side}’s timer is now running")
+        side = "White ⚪"
 
-@bot.command(help="View how much time the currently running side has. Usage: <viewtime [game_id]")
+    game["last_update"] = now
+    await ctx.send(f"Turn ended- {side}'s clock is now running")
+
+@bot.command(help="View the currently running side’s remaining time. Usage: <viewtime [game_id]")
 async def viewtime(ctx, game_id: str):
     if game_id not in chess_games:
-        await ctx.send(f"Are we serious rn game `{game_id}` does not exist")
+        await ctx.send(f"Did you make a typo or smth??? Game `{game_id}` does not exist")
         return
 
     game = chess_games[game_id]
@@ -711,41 +714,44 @@ async def viewtime(ctx, game_id: str):
     elapsed = now - game["last_update"]
 
     if game["white"]["running"]:
-        current_time = game["white"]["time"] + elapsed
+        remaining = game["white"]["time"] - elapsed
         side = "White ⚪"
     else:
-        current_time = game["black"]["time"] + elapsed
+        remaining = game["black"]["time"] - elapsed
         side = "Black ⚫"
 
-    await ctx.send(f"{side}'s clock has been running for **{round(current_time, 1)}s** so far in game `{game_id}`.")
+    hours = int(remaining // 3600)
+    minutes = int((remaining % 3600) // 60)
+    seconds = int(remaining % 60)
 
+    await ctx.send(f"{side} has **{hours}h {minutes}m {seconds}s** left in game `{game_id}`.")
 
-@bot.command(help="End a chess timer game. Usage: <endgame [game_id]")
+@bot.command(help="End the game and show both sides’ remaining times. Usage: <endgame [game_id]")
 async def endgame(ctx, game_id: str):
     if game_id not in chess_games:
-        await ctx.send(f"Bro did you make a typo or smth?? Game `{game_id}` does not exist")
+        await ctx.send(f"Are we serious rn game `{game_id}` does not exist.")
         return
-    
-    game = chess_games[game_id]
+
+    game = chess_games.pop(game_id)
     now = time.time()
     elapsed = now - game["last_update"]
 
     if game["white"]["running"]:
-        game["white"]["time"] += elapsed
+        game["white"]["time"] -= elapsed
     else:
-        game["black"]["time"] += elapsed
+        game["black"]["time"] -= elapsed
 
-    white_time = round(game["white"]["time"], 1)
-    black_time = round(game["black"]["time"], 1)
+    def fmt_time(seconds):
+        h = int(seconds // 3600)
+        m = int((seconds % 3600) // 60)
+        s = int(seconds % 60)
+        return f"{h}h {m}m {s}s"
 
     await ctx.send(
-        f"Game `{game_id}` ended (I hope Rail won)!\n"
-        f"⚪ White's final time: **{white_time}s**\n"
-        f"⚫ Black's final time: **{black_time}s**"
+        f"Norway game `{game_id}` ended (I hope Rail won)\n"
+        f"⚪ White: {fmt_time(game['white']['time'])}\n"
+        f"⚫ Black: {fmt_time(game['black']['time'])}"
     )
-
-    del chess_games[game_id]
-
 
 # ---
 # Code Merged from Another bot
