@@ -10,6 +10,32 @@ import aiohttp
 import json
 import time
 
+ECON_FILE = "economy.json"
+
+# ---------------- Economy Helper Functions ---------------- #
+def load_econ():
+    if not os.path.exists(ECON_FILE):
+        return {"users": {}}
+    with open(ECON_FILE, "r") as f:
+        return json.load(f)
+
+def save_econ(data):
+    with open(ECON_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+econ_data = load_econ()
+
+def get_user_data(user_id):
+    if str(user_id) not in econ_data["users"]:
+        econ_data["users"][str(user_id)] = {
+            "shares": 0,
+            "opted_in": False,
+            "first_time": True,
+            "last_opt_time": 0
+        }
+    return econ_data["users"][str(user_id)]
+
+
 TIERLISTS_FILE = "tierlists.json"
 
 # Load tierlists from file
@@ -752,6 +778,80 @@ async def endgame(ctx, game_id: str):
         f"⚪ White: {fmt_time(game['white']['time'])}\n"
         f"⚫ Black: {fmt_time(game['black']['time'])}"
     )
+
+# ---------------- Economy Commands ---------------- #
+@bot.command(help="Opt in/out of the shares economy. Usage: <shares opt in / opt out")
+async def shares(ctx, action: str = None, action2: str = None):
+    global econ_data
+    user_id = str(ctx.author.id)
+    user_data = get_user_data(user_id)
+
+    if action == "opt" and action2 == "in":
+        now = time.time()
+        # Enforce 1 week cooldown (7 days = 604800 seconds)
+        if not user_data["opted_in"]:
+            if now - user_data["last_opt_time"] < 604800 and not user_data["first_time"]:
+                remaining = 604800 - (now - user_data["last_opt_time"])
+                days = int(remaining // 86400)
+                hours = int((remaining % 86400) // 3600)
+                minutes = int((remaining % 3600) // 60)
+                return await ctx.send(f"⏳ You can opt in again in {days}d {hours}h {minutes}m.")
+
+            user_data["opted_in"] = True
+            user_data["last_opt_time"] = now
+
+            if user_data["first_time"]:
+                user_data["shares"] = 100
+                user_data["first_time"] = False
+                await ctx.send(f"✅ {ctx.author.mention} opted in and received **100 shares**!")
+            else:
+                await ctx.send(f"✅ {ctx.author.mention} opted back in with **{user_data['shares']} shares**.")
+
+        else:
+            await ctx.send("⚠️ You are already opted in.")
+
+    elif action == "opt" and action2 == "out":
+        if user_data["opted_in"]:
+            user_data["opted_in"] = False
+            user_data["shares"] = 0
+            user_data["last_opt_time"] = time.time()
+            await ctx.send(f"{ctx.author.mention} opted out. Your shares have been set to **0**.")
+        else:
+            await ctx.send("⚠️ You are not opted in.")
+
+    else:
+        await ctx.send("⚠️ Usage: `<shares opt in>` or `<shares opt out>`")
+
+    save_econ(econ_data)
+
+
+@bot.command(help="View the shares leaderboard. Usage: <leaderboard")
+async def leaderboard(ctx):
+    global econ_data
+    users = econ_data["users"]
+    # Only include users with >0 shares
+    leaderboard_list = [(int(uid), data["shares"]) for uid, data in users.items() if data["shares"] > 0]
+
+    if not leaderboard_list:
+        return await ctx.send("Nobody has shares yet.")
+
+    leaderboard_list.sort(key=lambda x: x[1], reverse=True)
+    lines = []
+    for i, (uid, shares) in enumerate(leaderboard_list[:10], start=1):  # Top 10
+        user = await bot.fetch_user(uid)
+        lines.append(f"**{i}. {user.name}** — {shares} shares")
+
+    await ctx.send("🏆 **Shares Leaderboard** 🏆\n" + "\n".join(lines))
+
+
+@bot.command(help="⚠️ (Owner only) Reset the entire economy. Usage: <resetecon")
+@commands.is_owner()
+async def resetecon(ctx):
+    global econ_data
+    econ_data = {"users": {}}
+    save_econ(econ_data)
+    await ctx.send("⚠️ Economy has been completely reset.")
+
 
 # ---
 # Code Merged from Another bot
