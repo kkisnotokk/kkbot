@@ -313,7 +313,7 @@ async def gamble(ctx):
     else:
         response = f"{slot_display} - Better luck next time."
 
-    await ctx.send(response + "/n {ctx.author.name} used <gamble")
+    await ctx.send(response + f"/n {ctx.author.name} used <gamble")
 
 @bot.command(help="Choose between words or roll a number (e.g. <roll 10 or <roll red, blue)")
 async def roll(ctx, *, args):
