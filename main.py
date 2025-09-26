@@ -906,7 +906,7 @@ async def editsnipe(ctx):
     data = edited_messages.get(ctx.channel.id)
     if data:
         await ctx.send(
-            f"A message was eddited by... \n"
+            f"A message was edited by... \n"
             f"# **{data['author']}**\n"
             f" # <:d_:1409192999136792766><:d_:1409192999136792766><:d_:1409192999136792766> \n"
             f"---------------------------\n"
