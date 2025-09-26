@@ -909,10 +909,10 @@ async def editsnipe(ctx):
             f"A message was edited by... \n"
             f"# **{data['author']}**\n"
             f" # <:d_:1409192999136792766><:d_:1409192999136792766><:d_:1409192999136792766> \n"
-            f"---------------------------\n"
-            f"**Before:** {data['before']}\n"
-            f"---------------------------\n"
-            f"**After:** {data['after']}\n"
+            f"-# ◄══════════════════════►\n"
+            f"***Before:*** {data['before']}\n"
+            f"◄══════════════════════►\n"
+            f"***After:*** {data['after']}\n"
             f"-# {ctx.author.name} used <editsnipe"
         )
     else:
