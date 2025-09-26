@@ -159,6 +159,8 @@ sniped_messages = {}
 rigged_responses = {}
 STARTING_TIME = 12 * 60 * 60  # 12 hours
 chess_games = {}
+edited_messages = {}       
+deleted_message_logs = {}  
 
 # ---------------------------
 # EVENTS
@@ -202,6 +204,49 @@ async def on_message_delete(message):
     if sniped_messages.get(message.channel.id) and sniped_messages[message.channel.id]["content"] == message.content:
         del sniped_messages[message.channel.id]
 
+
+
+@bot.event
+async def on_message_edit(before, after):
+    if before.author.bot:
+        return
+    edited_messages[before.channel.id] = {
+        "before": before.content,
+        "after": after.content,
+        "author": before.author,
+        "time": before.edited_at
+    }
+
+@bot.event
+async def on_message_delete(message):
+    if message.author.bot:
+        return
+
+    sniped_messages[message.channel.id] = {
+        "content": message.content,
+        "author": message.author,
+        "time": message.created_at
+    }
+
+    if message.channel.id not in deleted_message_logs:
+        deleted_message_logs[message.channel.id] = []
+    deleted_message_logs[message.channel.id].append({
+        "content": message.content,
+        "author": message.author,
+        "time": message.created_at
+    })
+
+    await asyncio.sleep(60)
+    if sniped_messages.get(message.channel.id) and sniped_messages[message.channel.id]["content"] == message.content:
+        del sniped_messages[message.channel.id]
+
+    if message.channel.id in deleted_message_logs:
+        deleted_message_logs[message.channel.id] = [
+            msg for msg in deleted_message_logs[message.channel.id] if msg["content"] != message.content
+        ]
+        if not deleted_message_logs[message.channel.id]:
+            del deleted_message_logs[message.channel.id]
+            
 # ---------------------------
 # COMMANDS
 # ---------------------------
@@ -851,6 +896,34 @@ async def resetecon(ctx):
     econ_data = {"users": {}}
     save_econ(econ_data)
     await ctx.send("⚠️ Economy has been completely reset.")
+
+@bot.command(help="Snipes the last edited message in this channel")
+async def editsnipe(ctx):
+    data = edited_messages.get(ctx.channel.id)
+    if data:
+        await ctx.send(
+            f"A message was ddited by... \n"
+            f"# **{data['author']}** <:d_:1409192999136792766>:\n"
+            f"---------------------------\n"
+            f"Before: {data['before']}\n"
+            f"After: {data['after']}"
+        )
+    else:
+        await ctx.send("No message was edited in the last minute, so you're either late or paranoid.")
+
+
+@bot.command(help="Snipes all deleted messages from the past 60 seconds in this channel")
+async def snipeall(ctx):
+    logs = deleted_message_logs.get(ctx.channel.id, [])
+    if not logs:
+        return await ctx.send("Nope, nothing **AND I MEAN NOTHING** was deleted in the last minute.")
+
+    lines = []
+    for msg in logs:
+        time_diff = (discord.utils.utcnow() - msg["time"]).seconds
+        lines.append(f"**{msg['author']}** ({time_diff}s ago): {msg['content']}")
+
+    await ctx.send("Well well well what do we have here? Here are **all** the **deleted messages from the last 60s**:\n" + "\n".join(lines[:10]))
 
 
 # ---
