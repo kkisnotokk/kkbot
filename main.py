@@ -897,13 +897,17 @@ async def resetecon(ctx):
     save_econ(econ_data)
     await ctx.send("⚠️ Economy has been completely reset.")
 
+
+# uhhh back to normalcy
+
 @bot.command(help="Snipes the last edited message in this channel")
 async def editsnipe(ctx):
     data = edited_messages.get(ctx.channel.id)
     if data:
         await ctx.send(
-            f"A message was ddited by... \n"
-            f"# **{data['author']}** <:d_:1409192999136792766>:\n"
+            f"A message was eddited by... \n"
+            f"# **{data['author']}**\n"
+            f" # <:d_:1409192999136792766><:d_:1409192999136792766><:d_:1409192999136792766> \n"
             f"---------------------------\n"
             f"Before: {data['before']}\n"
             f"After: {data['after']}"
@@ -916,14 +920,16 @@ async def editsnipe(ctx):
 async def snipeall(ctx):
     logs = deleted_message_logs.get(ctx.channel.id, [])
     if not logs:
-        return await ctx.send("Nope, nothing **AND I MEAN NOTHING** was deleted in the last minute.")
+        return await ctx.send("Nope, nothing **AND I MEAN NOTHING** was deleted in the last minute <:d_:1409192999136792766>")
 
     lines = []
     for msg in logs:
         time_diff = (discord.utils.utcnow() - msg["time"]).seconds
         lines.append(f"**{msg['author']}** ({time_diff}s ago): {msg['content']}")
 
-    await ctx.send("Well well well what do we have here? Here are **all** the **deleted messages from the last 60s**:\n" + "\n".join(lines[:10]))
+    await ctx.send(
+        f"# GET SNIPED <:KEKW:1363718257835769916>:\n"
+        f"Here are **ALL** deleted messages in the past minute \n" + "\n".join(lines[:10]))
 
 
 # ---
