@@ -313,7 +313,7 @@ async def gamble(ctx):
     else:
         response = f"{slot_display} - Better luck next time."
 
-    await ctx.send(response)
+    await ctx.send(response + "/n {ctx.author.name} used <gamble")
 
 @bot.command(help="Choose between words or roll a number (e.g. <roll 10 or <roll red, blue)")
 async def roll(ctx, *, args):
@@ -351,7 +351,7 @@ async def roll(ctx, *, args):
         choices = [choice.strip() for choice in cleaned_args.split(",") if choice.strip()]
         if len(choices) >= 2:
             result = random.choice(choices)
-            await ctx.send(f"🎲 You rolled: {result}")
+            await ctx.send(f"🎲 You rolled: {result}" + f"\n -# {ctx.author.name} used <roll")
         else:
             await ctx.send("❌ Please provide at least two comma-separated choices.")
         return
@@ -364,7 +364,7 @@ async def roll(ctx, *, args):
                 await ctx.send("❌ Please enter a number greater than 0.")
                 return
             result = random.randint(1, upper)
-            await ctx.send(f"🎲 You rolled: {result}")
+            await ctx.send(f"🎲 You rolled: {result}" + f"\n -# {ctx.author.name} used <roll")
             return
         except ValueError:
             pass
@@ -412,7 +412,7 @@ async def pingroulette(ctx):
     fake_ping = "@" + "\u200b".join(fake_ping)   # zero-width join to prevent real ping
     await ctx.send(fake_ping)
 
-@bot.command(help="Ask the all-knowing 8-ball a question")
+@bot.command(name="eightball" , aliases=["8ball"] , help="Ask the all-knowing 8-ball a question")
 async def eightball(ctx, *, question: str = None):
     rigged = rigged_responses.pop(ctx.author.id, None)
     if rigged:
@@ -427,7 +427,8 @@ async def eightball(ctx, *, question: str = None):
         "Idk ask Emilybot.", "All will be clear soon, wait, no it won't I lied you're cooked.",
         f"It's ggs {ctx.author.name}, you know the answer.", "Er uh you don't need to know that.",
         "I am not answering that.", "Shut up I'm busy getting drunk.",
-        "@kk there's been an error, I think I ran out of shits to give.", "(Sponsored) We are sorry to interupt this command but we must inform you of the hot new bot on the market— @IBM!! You should use '@IBM coin' and try it now!!"
+        "@kk there's been an error, I think I ran out of shits to give.", "(Sponsored) We are sorry to interupt this command but we must inform you of the hot new bot on the market— @IBM!! You should use '@IBM coin' and try it now!!",
+        "You should be careful useing 8ball nowadays, the 8ball throwing man has started visiting other bots" , "LOOK OUT IT'S A FLYING 8BALL"
     ]
 
     if not question:
@@ -435,7 +436,7 @@ async def eightball(ctx, *, question: str = None):
         return
 
     answer = random.choice(responses)
-    await ctx.send(f"🎱 {answer}")
+    await ctx.send(f"🎱 {answer}" + f"\n -# {ctx.author.name} used <eightball")
 
 @bot.command(help="Rates anything from 1/10 to 100/10")
 async def rate(ctx, *, thing: str = None):
@@ -604,7 +605,7 @@ async def addpreset(ctx, name: str, *, values: str):
 
     values_list = [v.strip() for v in values.split(",")]
     server_presets[guild_id][name] = values_list
-    await ctx.send(f"Preset `{name}` added for this server with {len(values_list)} values.")
+    await ctx.send(f"Preset `{name}` added for this server with {len(values_list)} values." + f"\n -# {ctx.author.name} used <addpreset")
 
 @bot.command(name="deletepreset", help="Delete a preset. Usage: <deletepreset (preset name}")
 async def deletepreset(ctx, name: str):
@@ -909,8 +910,10 @@ async def editsnipe(ctx):
             f"# **{data['author']}**\n"
             f" # <:d_:1409192999136792766><:d_:1409192999136792766><:d_:1409192999136792766> \n"
             f"---------------------------\n"
-            f"Before: {data['before']}\n"
-            f"After: {data['after']}"
+            f"**Before:** {data['before']}\n"
+            f"---------------------------\n"
+            f"**After:** {data['after']}\n"
+            f"-# {ctx.author.name} used <editsnipe"
         )
     else:
         await ctx.send("No message was edited in the last minute, so you're either late or paranoid.")
@@ -929,7 +932,7 @@ async def snipeall(ctx):
 
     await ctx.send(
         f"# GET SNIPED <:KEKW:1363718257835769916>:\n"
-        f"Here are **ALL** deleted messages in the past minute \n" + "\n".join(lines[:10]))
+        f"Here are **ALL** deleted messages in the past minute \n" + "\n".join(lines[:10]) + "\n -# {ctx.author.name} used <snipeall")
 
 
 # ---
