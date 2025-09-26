@@ -932,7 +932,7 @@ async def snipeall(ctx):
 
     await ctx.send(
         f"# GET SNIPED <:KEKW:1363718257835769916>:\n"
-        f"Here are **ALL** deleted messages in the past minute \n" + "\n".join(lines[:10]) + "\n -# {ctx.author.name} used <snipeall")
+        f"Here are **ALL** deleted messages in the past minute \n" + "\n".join(lines[:10]) + f"\n -# {ctx.author.name} used <snipeall")
 
 
 # ---
