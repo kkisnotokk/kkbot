@@ -351,7 +351,7 @@ async def roll(ctx, *, args):
         choices = [choice.strip() for choice in cleaned_args.split(",") if choice.strip()]
         if len(choices) >= 2:
             result = random.choice(choices)
-            await ctx.send(f"🎲 You rolled: {result}" + f"\n -# {ctx.author.name} used <roll")
+            await ctx.send(f"🎲 You rolled: {result}" + "\n" + f"-# {ctx.author.name} used <roll")
         else:
             await ctx.send("❌ Please provide at least two comma-separated choices.")
         return
@@ -364,7 +364,7 @@ async def roll(ctx, *, args):
                 await ctx.send("❌ Please enter a number greater than 0.")
                 return
             result = random.randint(1, upper)
-            await ctx.send(f"🎲 You rolled: {result}" + f"\n -# {ctx.author.name} used <roll")
+            await ctx.send(f"🎲 You rolled: {result}" + "\n" + f"-# {ctx.author.name} used <roll")
             return
         except ValueError:
             pass
