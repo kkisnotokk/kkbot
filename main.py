@@ -436,7 +436,7 @@ async def eightball(ctx, *, question: str = None):
         return
 
     answer = random.choice(responses)
-    await ctx.send(f"🎱 {answer}" + f"\n -# {ctx.author.name} used <eightball")
+    await ctx.send(f"🎱 {answer}" + "\n" + f"-# {ctx.author.name} used <eightball")
 
 @bot.command(help="Rates anything from 1/10 to 100/10")
 async def rate(ctx, *, thing: str = None):
