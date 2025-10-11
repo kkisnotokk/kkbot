@@ -13,6 +13,20 @@ from datetime import datetime, timedelta
 
 # ==== POLL SYSTEM ====
 
+def parse_duration(duration_str):
+    """Parse a duration string like '30', '30m', '1h', '1h30m'."""
+    if isinstance(duration_str, int) or duration_str.isdigit():
+        return timedelta(minutes=int(duration_str))
+    
+    pattern = r'(?:(\d+)h)?(?:(\d+)m)?'
+    match = re.fullmatch(pattern, duration_str)
+    if not match:
+        raise ValueError(f"Invalid duration format: {duration_str}")
+    
+    hours = int(match.group(1)) if match.group(1) else 0
+    minutes = int(match.group(2)) if match.group(2) else 0
+    return timedelta(hours=hours, minutes=minutes)
+
 POLL_FILE = "polls.json"
 
 # Load/save persistent poll data
@@ -1028,9 +1042,9 @@ async def snipeall(ctx):
 async def createpoll(ctx, *, args):
     try:
         name, question, options_str, duration = [a.strip() for a in args.split(".")]
-        duration = int(duration)
+        duration_td = parse_duration(duration_str)
     except Exception:
-        await ctx.send("Usage: `<createpoll name. question. option1, option2, option3. duration(min)`")
+        await ctx.send("Usage: `<createpoll name. question. option1, option2, option3. duration(min|m|h|h+m)`")
         return
 
     if name in polls:
@@ -1043,7 +1057,7 @@ async def createpoll(ctx, *, args):
         "question": question,
         "options": {opt: {} for opt in options},
         "votes": {},
-        "end_time": (datetime.utcnow() + timedelta(minutes=duration)).isoformat(),
+        "end_time": (datetime.utcnow() + duration_td).isoformat(),
         "channel": ctx.channel.id,
         "message_id": None,
         "closed": False
