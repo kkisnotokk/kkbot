@@ -9,6 +9,71 @@ import asyncio
 import aiohttp
 import json
 import time
+from datetime import datetime, timedelta
+
+# ==== POLL SYSTEM ====
+
+POLL_FILE = "polls.json"
+
+# Load/save persistent poll data
+def load_polls():
+    if not os.path.exists(POLL_FILE):
+        return {}
+    with open(POLL_FILE, "r") as f:
+        return json.load(f)
+
+def save_polls(polls):
+    with open(POLL_FILE, "w") as f:
+        json.dump(polls, f, indent=4)
+
+polls = load_polls()
+
+# Helper: create embed view of poll
+def make_poll_embed(poll_name, data, closed=False):
+    embed = discord.Embed(
+        title=f"🗳️ Poll — {poll_name}",
+        description=data["question"],
+        color=discord.Color.blurple()
+    )
+    for option, stats in data["options"].items():
+        first = len([v for v in data["votes"].values() if v[0] == option])
+        second = len([v for v in data["votes"].values() if len(v) > 1 and v[1] == option])
+        third = len([v for v in data["votes"].values() if len(v) > 2 and v[2] == option])
+        embed.add_field(
+            name=f"{option}",
+            value=f"🥇 **{first}** 🥈 {second} 🥉 {third}",
+            inline=False
+        )
+    if not closed:
+        end_time = datetime.fromisoformat(data["end_time"])
+        embed.set_footer(text=f"Poll ends at {end_time.strftime('%Y-%m-%d %H:%M:%S')} UTC")
+    else:
+        embed.color = discord.Color.green()
+    return embed
+
+# Instant-runoff vote counting
+def compute_irv_winner(votes, options):
+    remaining = set(options)
+    while True:
+        counts = {opt: 0 for opt in remaining}
+        for vote in votes.values():
+            for choice in vote:
+                if choice in remaining:
+                    counts[choice] += 1
+                    break
+        # Check if any candidate has >50%
+        total = sum(counts.values())
+        for opt, c in counts.items():
+            if c > total / 2:
+                return opt, counts
+        # Eliminate lowest
+        min_votes = min(counts.values())
+        losers = [o for o, c in counts.items() if c == min_votes]
+        for l in losers:
+            remaining.remove(l)
+        if len(remaining) == 1:
+            return next(iter(remaining)), counts
+
 
 ECON_FILE = "economy.json"
 
@@ -246,7 +311,31 @@ async def on_message_delete(message):
         ]
         if not deleted_message_logs[message.channel.id]:
             del deleted_message_logs[message.channel.id]
-            
+
+async def poll_autoclose():
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        now = datetime.utcnow()
+        for name, data in list(polls.items()):
+            if not data.get("closed", False) and datetime.fromisoformat(data["end_time"]) <= now:
+                data["closed"] = True
+                winner, final_counts = compute_irv_winner(data["votes"], data["options"].keys())
+                save_polls(polls)
+
+                channel = bot.get_channel(data["channel"])
+                if channel:
+                    result_embed = discord.Embed(
+                        title=f"✅ Poll Results — {name}",
+                        description=f"🏆 **{winner}** wins!\nQuestion: {data['question']}",
+                        color=discord.Color.green()
+                    )
+                    for opt, count in final_counts.items():
+                        result_embed.add_field(name=opt, value=f"Final Votes: **{count}**", inline=False)
+                    await channel.send(embed=result_embed)
+        await asyncio.sleep(60)  # check every minute
+
+bot.loop.create_task(poll_autoclose())
+
 # ---------------------------
 # COMMANDS
 # ---------------------------
@@ -934,6 +1023,95 @@ async def snipeall(ctx):
         f"# GET SNIPED <:KEKW:1363718257835769916>:\n"
         f"Here are **ALL** deleted messages in the past minute \n" + "\n".join(lines[:10]) + "\n" + f"-# {ctx.author.name} used <snipeall")
 
+# Poll stuff:
+
+@bot.command(help="Create a new ranked-choice poll")
+async def createpoll(ctx, *, args):
+    try:
+        name, question, options_str, duration = [a.strip() for a in args.split("|")]
+        duration = int(duration)
+    except Exception:
+        await ctx.send("Usage: `<createpoll name | question | option1, option2, option3 | duration(min)>`")
+        return
+
+    if name in polls:
+        await ctx.send("A poll with that name already exists <:KEKW:1363718257835769916>")
+        return
+
+    options = [o.strip() for o in options_str.split(",")]
+    polls[name] = {
+        "creator": ctx.author.id,
+        "question": question,
+        "options": {opt: {} for opt in options},
+        "votes": {},
+        "end_time": (datetime.utcnow() + timedelta(minutes=duration)).isoformat(),
+        "channel": ctx.channel.id,
+        "message_id": None,
+        "closed": False
+    }
+
+    embed = make_poll_embed(name, polls[name])
+    msg = await ctx.send(embed=embed)
+    polls[name]["message_id"] = msg.id
+    save_polls(polls)
+    await ctx.send(f"Poll **{name}** created! Use `<vote {name} opt1, opt2, opt3>` to vote.")
+
+@bot.command(help="Vote in a ranked-choice poll")
+async def vote(ctx, poll_name, *, ranked_choices):
+    if poll_name not in polls:
+        await ctx.send("404 poll not found")
+        return
+
+    poll = polls[poll_name]
+    if poll["closed"]:
+        await ctx.send("You're a little late bro this poll is closed.")
+        return
+
+    options = [o.strip().lower() for o in poll["options"].keys()]
+    votes = [v.strip().lower() for v in ranked_choices.split(",")]
+
+    if not all(v in options for v in votes):
+        await ctx.send("Invalid option(s) in your vote (CHECK YOUR SPELLING)")
+        return
+
+    poll["votes"][str(ctx.author.id)] = votes
+    save_polls(polls)
+    await ctx.send(f"Vote recorded for poll **{poll_name}**!")
+
+    # Update the live poll message
+    try:
+        channel = bot.get_channel(poll["channel"])
+        msg = await channel.fetch_message(poll["message_id"])
+        await msg.edit(embed=make_poll_embed(poll_name, poll))
+    except Exception:
+        pass
+
+@bot.command(help="End a poll early (poll creator only)")
+async def endpoll(ctx, poll_name):
+    if poll_name not in polls:
+        await ctx.send("404 poll not found.")
+        return
+    poll = polls[poll_name]
+    if ctx.author.id != poll["creator"]:
+        await ctx.send("Only the poll creator can end the poll.")
+        return
+    if poll["closed"]:
+        await ctx.send("Poll already closed <:KEKW:1363718257835769916>")
+        return
+
+    poll["closed"] = True
+    winner, final_counts = compute_irv_winner(poll["votes"], poll["options"].keys())
+    save_polls(polls)
+
+    result_embed = discord.Embed(
+        title=f"Poll Results — {poll_name}",
+        description=f"Option **{winner}** has for **{poll['question']}**",
+        color=discord.Color.green()
+    )
+    for opt, count in final_counts.items():
+        result_embed.add_field(name=opt, value=f"Final Votes: **{count}**", inline=False)
+
+    await ctx.send(embed=result_embed)
 
 # ---
 # Code Merged from Another bot
