@@ -1038,11 +1038,11 @@ async def snipeall(ctx):
 
 # Poll stuff:
 
-@bot.command(help="Create a new ranked-choice poll")
+@bot.command(help="Create a new instant runoff poll")
 async def createpoll(ctx, *, args):
     try:
         name, question, options_str, duration = [a.strip() for a in args.split(".")]
-        duration_td = parse_duration(duration_str)
+        duration_td = parse_duration(duration)
     except Exception:
         await ctx.send("Usage: `<createpoll name. question. option1, option2, option3. duration(min|m|h|h+m)`")
         return
