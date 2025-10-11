@@ -235,6 +235,7 @@ deleted_message_logs = {}
 async def on_ready():
     print(f"✅ Logged in as {bot.user}!")
     bot.loop.create_task(reminder_loop())
+    bot.loop.create_task(poll_autoclose())
 
 @bot.event
 async def on_message(message):
@@ -333,8 +334,6 @@ async def poll_autoclose():
                         result_embed.add_field(name=opt, value=f"Final Votes: **{count}**", inline=False)
                     await channel.send(embed=result_embed)
         await asyncio.sleep(60)  # check every minute
-
-bot.loop.create_task(poll_autoclose())
 
 # ---------------------------
 # COMMANDS
