@@ -1027,7 +1027,7 @@ async def snipeall(ctx):
 @bot.command(help="Create a new ranked-choice poll")
 async def createpoll(ctx, *, args):
     try:
-        name, question, options_str, duration = [a.strip() for a in args.split("|")]
+        name, question, options_str, duration = [a.strip() for a in args.split(".")]
         duration = int(duration)
     except Exception:
         await ctx.send("Usage: `<createpoll name | question | option1, option2, option3 | duration(min)>`")
@@ -1095,23 +1095,37 @@ async def endpoll(ctx, poll_name):
         await ctx.send("Only the poll creator can end the poll.")
         return
     if poll["closed"]:
-        await ctx.send("Poll already closed <:KEKW:1363718257835769916>")
+        await ctx.send("Poll already closed <:KEKW:1363718259146635766>")
         return
 
     poll["closed"] = True
-    winner, final_counts = compute_irv_winner(poll["votes"], poll["options"].keys())
     save_polls(polls)
 
+    # Compute winner only if votes exist
+    if poll["votes"]:
+        winner, final_counts = compute_irv_winner(poll["votes"], list(poll["options"].keys()))
+    else:
+        winner, final_counts = None, {opt: 0 for opt in poll["options"].keys()}
+
     result_embed = discord.Embed(
-        title=f"Poll Results — {poll_name}",
-        description=f"Option **{winner}** has for **{poll['question']}**",
+        title=f"✅ Poll Results — {poll_name}",
+        description=f"🏆 Winner: **{winner if winner else 'No votes'}**\nQuestion: {poll['question']}",
         color=discord.Color.green()
     )
     for opt, count in final_counts.items():
         result_embed.add_field(name=opt, value=f"Final Votes: **{count}**", inline=False)
 
-    await ctx.send(embed=result_embed)
+    # Update original poll message
+    try:
+        channel = bot.get_channel(poll["channel"])
+        msg = await channel.fetch_message(poll["message_id"])
+        await msg.edit(embed=result_embed)
+    except Exception:
+        pass
 
+    # Also send results to channel
+    await ctx.send(embed=result_embed)
+    
 # ---
 # Code Merged from Another bot
 # ---
