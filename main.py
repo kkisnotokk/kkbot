@@ -1030,7 +1030,7 @@ async def createpoll(ctx, *, args):
         name, question, options_str, duration = [a.strip() for a in args.split(".")]
         duration = int(duration)
     except Exception:
-        await ctx.send("Usage: `<createpoll name | question | option1, option2, option3 | duration(min)>`")
+        await ctx.send("Usage: `<createpoll name. question. option1, option2, option3. duration(min)`")
         return
 
     if name in polls:
