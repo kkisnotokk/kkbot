@@ -65,9 +65,10 @@ def make_poll_embed(poll_name, data, closed=False):
         embed.color = discord.Color.green()
     return embed
 
-# Instant-runoff vote counting
+# Instant run-off poll function thing
 def compute_irv_winner(votes, options):
     remaining = set(options)
+    
     while True:
         counts = {opt: 0 for opt in remaining}
         for vote in votes.values():
@@ -75,19 +76,26 @@ def compute_irv_winner(votes, options):
                 if choice in remaining:
                     counts[choice] += 1
                     break
-        # Check if any candidate has >50%
-        total = sum(counts.values())
+
+        total_votes = sum(counts.values())
+        # Check for majority
         for opt, c in counts.items():
-            if c > total / 2:
-                return opt, counts
-        # Eliminate lowest
+            if c > total_votes / 2:
+                return opt, counts  # clear winner
+
+        # Check if all remaining candidates are tied
+        if len(set(counts.values())) == 1:
+            return list(remaining), counts  # exact tie
+
+        # Eliminate candidate(s) with lowest votes
         min_votes = min(counts.values())
         losers = [o for o, c in counts.items() if c == min_votes]
         for l in losers:
             remaining.remove(l)
+
+        # Only one candidate left
         if len(remaining) == 1:
             return next(iter(remaining)), counts
-
 
 ECON_FILE = "economy.json"
 
@@ -1104,10 +1112,12 @@ async def endpoll(ctx, poll_name):
     if poll_name not in polls:
         await ctx.send("404 poll not found.")
         return
+
     poll = polls[poll_name]
     if ctx.author.id != poll["creator"]:
         await ctx.send("Only the poll creator can end the poll.")
         return
+
     if poll["closed"]:
         await ctx.send("Poll already closed <:KEKW:1363718259146635766>")
         return
@@ -1115,19 +1125,18 @@ async def endpoll(ctx, poll_name):
     poll["closed"] = True
     save_polls(polls)
 
-    # Compute winner only if votes exist
+    # Compute winner
     if poll["votes"]:
         winner, final_counts = compute_irv_winner(poll["votes"], list(poll["options"].keys()))
-        # Tie check
-        max_votes = max(final_counts.values())
-        tied_options = [opt for opt, count in final_counts.items() if count == max_votes]
-        if len(tied_options) > 1:
-            winner_text = f"Tie! Poll creator must decide: {', '.join(tied_options)}"
+        if isinstance(winner, list):
+            # Tie detected
+            winner_text = f"Tie! Poll creator must decide: {', '.join(winner)}"
         else:
             winner_text = winner
     else:
         winner_text, final_counts = "No votes", {opt: 0 for opt in poll["options"].keys()}
 
+    # Prepare results embed
     result_embed = discord.Embed(
         title=f"✅ Poll Results — {poll_name}",
         description=f"🏆 Winner: **{winner_text}**\nQuestion: {poll['question']}",
@@ -1144,9 +1153,8 @@ async def endpoll(ctx, poll_name):
     except Exception:
         pass
 
-    # Also send results to channel
+    # Send results to channel
     await ctx.send(embed=result_embed)
-
     
 # ---
 # Code Merged from Another bot
