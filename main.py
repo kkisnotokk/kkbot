@@ -1118,12 +1118,19 @@ async def endpoll(ctx, poll_name):
     # Compute winner only if votes exist
     if poll["votes"]:
         winner, final_counts = compute_irv_winner(poll["votes"], list(poll["options"].keys()))
+        # Tie check
+        max_votes = max(final_counts.values())
+        tied_options = [opt for opt, count in final_counts.items() if count == max_votes]
+        if len(tied_options) > 1:
+            winner_text = f"Tie! Poll creator must decide: {', '.join(tied_options)}"
+        else:
+            winner_text = winner
     else:
-        winner, final_counts = None, {opt: 0 for opt in poll["options"].keys()}
+        winner_text, final_counts = "No votes", {opt: 0 for opt in poll["options"].keys()}
 
     result_embed = discord.Embed(
         title=f"✅ Poll Results — {poll_name}",
-        description=f"🏆 Winner: **{winner if winner else 'No votes'}**\nQuestion: {poll['question']}",
+        description=f"🏆 Winner: **{winner_text}**\nQuestion: {poll['question']}",
         color=discord.Color.green()
     )
     for opt, count in final_counts.items():
@@ -1139,6 +1146,7 @@ async def endpoll(ctx, poll_name):
 
     # Also send results to channel
     await ctx.send(embed=result_embed)
+
     
 # ---
 # Code Merged from Another bot
