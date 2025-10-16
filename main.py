@@ -1041,78 +1041,108 @@ async def buy(ctx, member: discord.Member = None, amount: float = None):
 rob_cooldowns = {}
 rob_counts = {}  # track how many times someone has been robbed
 
-@bot.command(help="Attempt to rob someone. Usage: <rob @user")
-async def rob(ctx, target: discord.Member = None):
+@bot.command(help="Attempt to rob another player. Usage: <rob @user")
+@commands.cooldown(2, 86400, commands.BucketType.user)  # 2 rob attempts per day (per robber)
+async def rob(ctx, target: discord.Member):
     global econ_data
-    if not target:
-        return await ctx.send("It's literally 2 words. Usage: `<rob @user>`")
+    robber_id = str(ctx.author.id)
+    target_id = str(target.id)
 
-    if target.id == ctx.author.id:
-        return await ctx.send("Congrats you stole from yourself dumbass")
+    if robber_id == target_id:
+        return await ctx.send("Congrats you robbed yourself and nothing changed :d_:1409192999136792766")
 
-    robber_data = get_user_data(ctx.author.id)
-    target_data = get_user_data(target.id)
+    robber_data = get_user_data(robber_id)
+    target_data = get_user_data(target_id)
 
     if not robber_data["opted_in"] or not target_data["opted_in"]:
-        return await ctx.send("Both users must be opted in to shares econ to use this command.")
+        return await ctx.send("Both players must be opted into shares econ")
 
-    # Limit rob attempts to 2 per day
-    now = time.time()
-    if ctx.author.id in rob_cooldowns and (now - rob_cooldowns[ctx.author.id]) < 43200:  # 12 hours
-        remaining = int((43200 - (now - rob_cooldowns[ctx.author.id])) // 3600)
-        return await ctx.send(f"I'm sorry for this but there's a cooldown :sob:. You can rob again in {remaining} hours.")
+    # Initialize/reset daily rob tracking
+    now = datetime.utcnow().date()
+    if "rob_reset_date" not in target_data or target_data["rob_reset_date"] != str(now):
+        target_data["rob_reset_date"] = str(now)
+        target_data["times_robbed_today"] = 0
+    if "rob_reset_date" not in robber_data or robber_data["rob_reset_date"] != str(now):
+        robber_data["rob_reset_date"] = str(now)
+        robber_data["robs_today"] = 0
 
-    # Determine robbery amount
-    rob_index = rob_counts.get(target.id, 0)
-    rob_amounts = [9.3, 7.8, 6.8]
-    if rob_index >= len(rob_amounts):
-        return await ctx.send("That user's been robbed three times already leave them alone :d_:1409192999136792766")
+    # Check if target can still be robbed today
+    if target_data["times_robbed_today"] >= 3:
+        return await ctx.send(f"{target.display_name} has already been robbed 3 times today leave the poor guy alone")
 
-    rob_amount = rob_amounts[rob_index]
+    # Rob amount scaling
+    rob_values = [9.3, 7.8, 6.8, 5.0]
+    rob_amount = rob_values[min(target_data.get("times_robbed_today", 0), 3)]
 
-    if target_data["shares"] < rob_amount:
-        return await ctx.send("That user is too broke for you to rob :KEKW:1363718257835769916")
-
-    # Create message
+    # Create rob message
     msg = await ctx.send(
-        f"💀 {ctx.author.mention} is attempting to rob {target.mention} for **{rob_amount} shares!**\n"
-        f"React with <:good:1363720964810080316> to support the rob!\n"
-        f"React with <:miss:1363721012801179779> to snitch!"
+        f"**{ctx.author.display_name}** is attempting to rob **{target.display_name}** for **{rob_amount} shares!**\n"
+        f"React with :good:1363720964810080316 to **help** or :miss:1363721012801179779 to **snitch!**\n"
+        f"This rob attempt expires in 24 hours or when two people react one way."
     )
 
     await msg.add_reaction("<:good:1363720964810080316>")
     await msg.add_reaction("<:miss:1363721012801179779>")
 
-    await asyncio.sleep(86400)  # 1 day reaction window
-    msg = await ctx.channel.fetch_message(msg.id)
+    def check(reaction, user):
+        return (
+            reaction.message.id == msg.id
+            and str(reaction.emoji) in ["<:good:1363720964810080316>", "<:miss:1363721012801179779>"]
+            and not user.bot
+            and user.id not in [ctx.author.id, target.id]
+        )
 
-    good_reacts = 0
-    miss_reacts = 0
-    for reaction in msg.reactions:
-        if str(reaction.emoji) == "<:good:1363720964810080316>":
-            good_reacts = reaction.count - 1  # subtract bot
-        elif str(reaction.emoji) == "<:miss:1363721012801179779>":
-            miss_reacts = reaction.count - 1
+    help_count = 0
+    snitch_count = 0
+    end_time = datetime.utcnow() + timedelta(hours=24)
+    result_sent = False
 
-    # Evaluate outcome
-    if good_reacts >= 2:
-        robber_data["shares"] += rob_amount
-        target_data["shares"] -= rob_amount
-        rob_counts[target.id] = rob_index + 1
-        result = f"The person was sucessfully robbed and {ctx.author.mention} stole **{rob_amount} shares** from {target.mention}."
-    elif miss_reacts >= 2:
-        penalty = rob_amount * 2
-        robber_data["shares"] = max(0, robber_data["shares"] - penalty)
-        target_data["shares"] += penalty
-        result = f"Damnnnn the rob snitched! {ctx.author.mention} paid **{penalty} shares** as a penalty to {target.mention}."
-    else:
-        result = "Nobody reacted." + {ctx.author.mention} + "'s rob got denied :KEKW:1363718257835769916"
+    while datetime.utcnow() < end_time:
+        try:
+            reaction, user = await bot.wait_for("reaction_add", timeout=60.0, check=check)
+            if str(reaction.emoji) == "<:good:1363720964810080316>":
+                help_count += 1
+            elif str(reaction.emoji) == "<:miss:1363721012801179779>":
+                snitch_count += 1
 
-    save_econ(econ_data)
-    rob_cooldowns[ctx.author.id] = now
+            # Success condition
+            if help_count >= 2:
+                robber_data["shares"] += rob_amount
+                target_data["shares"] -= rob_amount
+                target_data["times_robbed_today"] += 1
+                robber_data["robs_today"] += 1
+                save_econ(econ_data)
+                await ctx.send(
+                    f"Rob succeeded! You (**{ctx.author.display_name}**) stole **{rob_amount} shares** from **{target.display_name}** you evil person."
+                )
+                await show_leaderboard_inline(ctx)
+                result_sent = True
+                break
 
-    await ctx.send(result)
-    await leaderboard(ctx)
+            # Failure condition
+            elif snitch_count >= 2:
+                fine = rob_amount * 2
+                robber_data["shares"] -= fine
+                target_data["shares"] += fine
+                target_data["times_robbed_today"] += 1
+                robber_data["robs_today"] += 1
+                save_econ(econ_data)
+                await ctx.send(
+                    f"Rob failed. Imagine :KEKW:1363718257835769916. {ctx.author.display_name} was **snitched on** and paid **{fine} shares** to {target.display_name}"
+                )
+                await show_leaderboard_inline(ctx)
+                result_sent = True
+                break
+
+        except asyncio.TimeoutError:
+            continue
+
+    # Expired rob
+    if not result_sent:
+        target_data["times_robbed_today"] += 1
+        save_econ(econ_data)
+        await ctx.send(f"The rob attempt by {ctx.author.display_name} on {target.display_name} expired after 24 hours.")
+
 
 
 
