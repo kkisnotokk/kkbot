@@ -97,7 +97,9 @@ def compute_irv_winner(votes, options):
         if len(remaining) == 1:
             return next(iter(remaining)), counts
 
-ECON_FILE = "economy.json"
+os.makedirs("/app/data", exist_ok=True)
+
+ECON_FILE = "/app/data/economy.json"
 
 # ---------------- Economy Helper Functions ---------------- #
 def load_econ():
