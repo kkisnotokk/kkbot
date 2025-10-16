@@ -1008,6 +1008,113 @@ async def resetecon(ctx):
     save_econ(econ_data)
     await ctx.send("⚠️ Economy has been completely reset.")
 
+# ---------------- Buy Command ---------------- #
+@bot.command(help="Buy something from someone (transfer shares). Usage: <buy @user amount")
+async def buy(ctx, member: discord.Member = None, amount: float = None):
+    global econ_data
+    if not member or amount is None:
+        return await ctx.send("GANG THIS IS NOT THAT HARD TO USE. Usage: `<buy @user amount>`")
+
+    if member.id == ctx.author.id:
+        return await ctx.send("congrats! you just gave yourself your own money!! literally nothing changed :d_:1409192999136792766")
+
+    buyer = get_user_data(ctx.author.id)
+    seller = get_user_data(member.id)
+
+    if not buyer["opted_in"] or not seller["opted_in"]:
+        return await ctx.send("Both users must be opted in to shares econ to use this command")
+
+    if buyer["shares"] < amount:
+        return await ctx.send("You're too broke to do that lmao")
+
+    buyer["shares"] -= amount
+    seller["shares"] += amount
+
+    save_econ(econ_data)
+
+    await ctx.send(
+        f"💸 {ctx.author.mention} paid {member.mention} **{amount:.2f} shares**!\n"
+        f"🏆 **Updated Leaderboard:**"
+    )
+    await leaderboard(ctx)
+# ---------------- Robbery System ---------------- #
+rob_cooldowns = {}
+rob_counts = {}  # track how many times someone has been robbed
+
+@bot.command(help="Attempt to rob someone. Usage: <rob @user")
+async def rob(ctx, target: discord.Member = None):
+    global econ_data
+    if not target:
+        return await ctx.send("It's literally 2 words. Usage: `<rob @user>`")
+
+    if target.id == ctx.author.id:
+        return await ctx.send("Congrats you stole from yourself dumbass")
+
+    robber_data = get_user_data(ctx.author.id)
+    target_data = get_user_data(target.id)
+
+    if not robber_data["opted_in"] or not target_data["opted_in"]:
+        return await ctx.send("Both users must be opted in to shares econ to use this command.")
+
+    # Limit rob attempts to 2 per day
+    now = time.time()
+    if ctx.author.id in rob_cooldowns and (now - rob_cooldowns[ctx.author.id]) < 43200:  # 12 hours
+        remaining = int((43200 - (now - rob_cooldowns[ctx.author.id])) // 3600)
+        return await ctx.send(f"I'm sorry for this but there's a cooldown :sob:. You can rob again in {remaining} hours.")
+
+    # Determine robbery amount
+    rob_index = rob_counts.get(target.id, 0)
+    rob_amounts = [9.3, 7.8, 6.8]
+    if rob_index >= len(rob_amounts):
+        return await ctx.send("That user's been robbed three times already leave them alone :d_:1409192999136792766")
+
+    rob_amount = rob_amounts[rob_index]
+
+    if target_data["shares"] < rob_amount:
+        return await ctx.send("That user is too broke for you to rob :KEKW:1363718257835769916")
+
+    # Create message
+    msg = await ctx.send(
+        f"💀 {ctx.author.mention} is attempting to rob {target.mention} for **{rob_amount} shares!**\n"
+        f"React with <:good:1363720964810080316> to support the rob!\n"
+        f"React with <:miss:1363721012801179779> to snitch!"
+    )
+
+    await msg.add_reaction("<:good:1363720964810080316>")
+    await msg.add_reaction("<:miss:1363721012801179779>")
+
+    await asyncio.sleep(86400)  # 1 day reaction window
+    msg = await ctx.channel.fetch_message(msg.id)
+
+    good_reacts = 0
+    miss_reacts = 0
+    for reaction in msg.reactions:
+        if str(reaction.emoji) == "<:good:1363720964810080316>":
+            good_reacts = reaction.count - 1  # subtract bot
+        elif str(reaction.emoji) == "<:miss:1363721012801179779>":
+            miss_reacts = reaction.count - 1
+
+    # Evaluate outcome
+    if good_reacts >= 2:
+        robber_data["shares"] += rob_amount
+        target_data["shares"] -= rob_amount
+        rob_counts[target.id] = rob_index + 1
+        result = f"The person was sucessfully robbed and {ctx.author.mention} stole **{rob_amount} shares** from {target.mention}."
+    elif miss_reacts >= 2:
+        penalty = rob_amount * 2
+        robber_data["shares"] = max(0, robber_data["shares"] - penalty)
+        target_data["shares"] += penalty
+        result = f"Damnnnn the rob snitched! {ctx.author.mention} paid **{penalty} shares** as a penalty to {target.mention}."
+    else:
+        result = "Nobody reacted." + {ctx.author.mention} + "'s rob got denied :KEKW:1363718257835769916"
+
+    save_econ(econ_data)
+    rob_cooldowns[ctx.author.id] = now
+
+    await ctx.send(result)
+    await leaderboard(ctx)
+
+
 
 # uhhh back to normalcy
 
