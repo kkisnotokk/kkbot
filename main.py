@@ -1043,7 +1043,10 @@ async def buy(ctx, member: discord.Member = None, amount: float = None):
 rob_cooldowns = {}
 rob_counts = {}  # track how many times someone has been robbed
 
-@bot.command(help="Attempt to rob another player. Usage: <rob @user")
+GOOD_EMOJI_ID = 1363720964810080316
+MISS_EMOJI_ID = 1363721012801179779
+
+@bot.command(help="Attempt to rob another player. Usage: <rob @user>")
 @commands.cooldown(2, 86400, commands.BucketType.user)  # 2 rob attempts per day (per robber)
 async def rob(ctx, target: discord.Member):
     global econ_data
@@ -1079,17 +1082,18 @@ async def rob(ctx, target: discord.Member):
     # Create rob message
     msg = await ctx.send(
         f"**{ctx.author.display_name}** is attempting to rob **{target.display_name}** for **{rob_amount} shares!**\n"
-        f"React with :good:1363720964810080316 to **help** or :miss:1363721012801179779 to **snitch!**\n"
+        f"React with <:good:{GOOD_EMOJI_ID}> to **help** or <:miss:{MISS_EMOJI_ID}> to **snitch!**\n"
         f"This rob attempt expires in 24 hours or when two people react one way."
     )
 
-    await msg.add_reaction("<:good:1363720964810080316>")
-    await msg.add_reaction("<:miss:1363721012801179779>")
+    await msg.add_reaction(discord.PartialEmoji(id=GOOD_EMOJI_ID))
+    await msg.add_reaction(discord.PartialEmoji(id=MISS_EMOJI_ID))
 
     def check(reaction, user):
         return (
             reaction.message.id == msg.id
-            and str(reaction.emoji) in ["<:good:1363720964810080316>", "<:miss:1363721012801179779>"]
+            and hasattr(reaction.emoji, "id")
+            and reaction.emoji.id in [GOOD_EMOJI_ID, MISS_EMOJI_ID]
             and not user.bot
             and user.id not in [ctx.author.id, target.id]
         )
@@ -1102,9 +1106,9 @@ async def rob(ctx, target: discord.Member):
     while datetime.utcnow() < end_time:
         try:
             reaction, user = await bot.wait_for("reaction_add", timeout=60.0, check=check)
-            if str(reaction.emoji) == "<:good:1363720964810080316>":
+            if reaction.emoji.id == GOOD_EMOJI_ID:
                 help_count += 1
-            elif str(reaction.emoji) == "<:miss:1363721012801179779>":
+            elif reaction.emoji.id == MISS_EMOJI_ID:
                 snitch_count += 1
 
             # Success condition
