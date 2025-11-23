@@ -1042,6 +1042,19 @@ async def buy(ctx, member: discord.Member = None, amount: float = None):
         f"🏆 **Updated Leaderboard:**"
     )
     await leaderboard(ctx)
+
+async def show_leaderboard_inline(ctx):
+    users = econ_data["users"]
+    leaderboard_list = [(int(uid), data["shares"]) for uid, data in users.items() if data["shares"] > 0]
+    leaderboard_list.sort(key=lambda x: x[1], reverse=True)
+
+    lines = []
+    for i, (uid, shares) in enumerate(leaderboard_list[:10], start=1):
+        user = await bot.fetch_user(uid)
+        lines.append(f"**{i}. {user.name}** — {shares} shares")
+
+    await ctx.send("🏆 **Updated Leaderboard** 🏆\n" + "\n".join(lines))
+
 # ---------------- Robbery System ---------------- #
 rob_cooldowns = {}
 rob_counts = {}  # track how many times someone has been robbed
