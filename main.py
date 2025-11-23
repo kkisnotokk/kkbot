@@ -236,7 +236,10 @@ TOKEN = os.getenv("TOKEN")
 
 # Setup bot
 intents = discord.Intents.default()
-intents.message_content = True  # needed for on_message and content parsing
+intents.message_content = True
+intents.reactions = True
+intents.guild_reactions = True
+intents.members = True
 
 bot = commands.Bot(
     command_prefix="<",
