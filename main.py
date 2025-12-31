@@ -1314,7 +1314,193 @@ async def endpoll(ctx, poll_name):
 
     # Send results to channel
     await ctx.send(embed=result_embed)
-    
+
+# SHARDS ECONOMY
+
+SHARDS_ECON_FILE = "/app/data/shards_economy.json"
+
+def load_shards_econ():
+    if not os.path.exists(SHARDS_ECON_FILE):
+        return {
+            "users": {},
+            "meta": {
+                "last_daily_tick": None,
+                "place_emojis": {
+                    "1": "🥇",
+                    "2": "🥈",
+                    "3": "🥉"
+                }
+            }
+        }
+    with open(SHARDS_ECON_FILE, "r") as f:
+        return json.load(f)
+
+def save_shards_econ(data):
+    with open(SHARDS_ECON_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+shards_econ = load_shards_econ()
+
+def create_user_account(user_id, nick):
+    shards_econ["users"][str(user_id)] = {
+        "nick": nick,
+        "aliases": [],
+
+        "balances": {
+            "shards": 0,
+            "fragments": 10.0,
+            "pink_fragments": 0,
+            "relics": 0
+        },
+
+        "items": {
+            "butter": 0.0,
+            "de_equipinator_until": None,
+            "enhanced_durability": 0,
+            "conversion_rate": 8.0
+        },
+
+        "vendor": {
+            "enabled": False,
+            "fragments_since_pink": 0.0
+        },
+
+        "mining": {
+            "base_blocks": 5,
+            "extra_durability": 0,
+            "luck_potion_until": None,
+            "mined_today": 0,
+            "last_reset": datetime.utcnow().date().isoformat()
+        },
+
+        "protection": {
+            "rob_protected_until": None
+        }
+    }
+def get_account(user: discord.Member):
+    uid = str(user.id)
+
+    if uid not in shards_econ["users"]:
+        create_user_account(uid, user.display_name)
+        save_shards_econ(shards_econ)
+
+    return shards_econ["users"][uid]
+def add_fragments(account, amount):
+    account["balances"]["fragments"] += amount
+    account["balances"]["fragments"] = round(account["balances"]["fragments"], 3)
+
+def add_shards(account, amount):
+    account["balances"]["shards"] += int(amount)
+
+def convert_shard_to_fragments(account, shards):
+    if account["balances"]["shards"] < shards:
+        return False
+    account["balances"]["shards"] -= shards
+    add_fragments(account, shards * 8)
+    return True
+
+def convert_fragments_to_shard(account, fragments):
+    if account["balances"]["fragments"] < fragments or fragments < 10:
+        return False
+    account["balances"]["fragments"] -= fragments
+    add_shards(account, fragments // 10)
+    return True
+@bot.command(name="register", help="Register for the shards economy")
+async def register(ctx):
+    uid = str(ctx.author.id)
+
+    if uid in shards_econ["users"]:
+        return await ctx.send("You are already registered in the shards economy.")
+
+    create_user_account(uid, ctx.author.display_name)
+    save_shards_econ(shards_econ)
+
+    await ctx.send(
+        f"✅ **{ctx.author.display_name}** registered!\n"
+        f"You start with **10 fragments**."
+    )
+@bot.command(name="balance", help="View your shards economy balance")
+async def balance(ctx, member: discord.Member = None):
+    member = member or ctx.author
+    account = get_account(member)
+
+    b = account["balances"]
+
+    await ctx.send(
+        f"**{account['nick']}**\n"
+        f"Relics: **{b['relics']}**\n"
+        f"Shards: **{b['shards']}**\n"
+        f"Fragments: **{round(b['fragments'], 1)}**\n"
+        f"Pink Fragments: **{b['pink_fragments']}**"
+    )
+@bot.command(name="leaderboard", help="View the shards leaderboard")
+async def shards_leaderboard(ctx):
+    users = shards_econ["users"]
+    places = shards_econ["meta"]["place_emojis"]
+
+    ranked = sorted(
+        users.values(),
+        key=lambda u: (
+            u["balances"]["shards"],
+            u["balances"]["fragments"],
+            u["balances"]["relics"]
+        ),
+        reverse=True
+    )
+
+    lines = ["Written as Relics | Shards | Fragments\n"]
+
+    for i, u in enumerate(ranked, start=1):
+        emoji = places.get(str(i), "🥛")
+        b = u["balances"]
+        lines.append(
+            f"{emoji} **{u['nick']}** — "
+            f"{b['relics']} | {b['shards']} | {round(b['fragments'], 1)}"
+        )
+
+    await ctx.send("\n".join(lines[:15]))
+@bot.command(name="setnick", help="Set your leaderboard nickname")
+async def setnick(ctx, *, nick: str):
+    account = get_account(ctx.author)
+    account["nick"] = nick
+    save_shards_econ(shards_econ)
+    await ctx.send(f"✅ Nickname updated to **{nick}**")
+@bot.command(name="addalias", help="Add an alternate username to your account")
+async def addalias(ctx, *, alias: str):
+    account = get_account(ctx.author)
+
+    if alias in account["aliases"]:
+        return await ctx.send("That alias is already linked.")
+
+    account["aliases"].append(alias)
+    save_shards_econ(shards_econ)
+
+    await ctx.send(f"🔗 Alias **{alias}** added to **{account['nick']}**")
+@bot.command(name="convert", help="Convert between shards and fragments")
+async def convert(ctx, direction: str, amount: int):
+    account = get_account(ctx.author)
+
+    if direction == "shard_to_fragments":
+        if not convert_shard_to_fragments(account, amount):
+            return await ctx.send("❌ Not enough shards.")
+        msg = f"Converted **{amount} shard(s)** → **{amount * 8} fragments**"
+
+    elif direction == "fragments_to_shard":
+        if amount < 10:
+            return await ctx.send("❌ Minimum 10 fragments required.")
+        if not convert_fragments_to_shard(account, amount):
+            return await ctx.send("❌ Not enough fragments.")
+        msg = f"Converted **{amount} fragments** → **{amount // 10} shard(s)**"
+
+    else:
+        return await ctx.send("Usage: `/convert shard_to_fragments X` or `/convert fragments_to_shard X`")
+
+    save_shards_econ(shards_econ)
+    await ctx.send(f"✅ {msg}")
+
+
+
+
 # ---
 # Code Merged from Another bot
 # ---
