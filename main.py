@@ -1033,7 +1033,11 @@ anon_log = []
 
 @bot.command(name="anon")
 async def anon(ctx, channel: discord.TextChannel, *, message):
-    """Send an anonymous message to a channel."""
+    """Send an anonymous message to a channel and DM the sender a confirmation."""
+    try:
+        await ctx.message.delete()
+    except Exception:
+        pass
     embed = discord.Embed(
         title="📩 Anonymous Message",
         description=message,
@@ -1043,15 +1047,16 @@ async def anon(ctx, channel: discord.TextChannel, *, message):
     embed.set_footer(text="Sent anonymously")
     
     await channel.send(embed=embed)
-    
     anon_log.append({
         "author_id": ctx.author.id,
         "channel_id": channel.id,
         "message": message,
         "time": datetime.utcnow().isoformat()
     })
-    
-    await ctx.reply(f"✅ Your anonymous message was sent to {channel.mention}", ephemeral=True)
+    try:
+        await ctx.author.send(f"Your anonymous message confession thingy was sent to {channel.mention}")
+    except Exception:
+        await ctx.send("Your anonymous message was sent (I couldn't DM you, please open your DMs).", delete_after=5)
 
 @bot.command(name="anonlog")
 async def anonlog(ctx, limit: int = 10):
