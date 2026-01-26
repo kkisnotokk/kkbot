@@ -1070,25 +1070,21 @@ anon_log = []
 @bot.command(name="anon")
 async def anon(ctx, channel: discord.TextChannel, *, message):
     """Send an anonymous message to a channel and DM the sender a confirmation."""
-     if not message:
-        await ctx.send("❌ You need to provide a message to send.")
-        return
-
-    channel = channel or ctx.channel
-
     user_perms = channel.permissions_for(ctx.author)
     if not user_perms.send_messages:
-        await ctx.send("❌ You don't have permission to send messages in that channel.")
+        await ctx.send("❌ You don't have permission to send messages in that channel.", delete_after=5)
         return
 
     bot_perms = channel.permissions_for(ctx.guild.me)
     if not bot_perms.send_messages:
-        await ctx.send("❌ I don't have permission to send messages in that channel.")
+        await ctx.send("❌ I don't have permission to send messages in that channel.", delete_after=5)
         return
+
     try:
         await ctx.message.delete()
     except Exception:
         pass
+
     embed = discord.Embed(
         title="📩 Anonymous Message",
         description=message,
@@ -1098,16 +1094,21 @@ async def anon(ctx, channel: discord.TextChannel, *, message):
     embed.set_footer(text="Sent anonymously")
     
     await channel.send(embed=embed)
+    
     anon_log.append({
         "author_id": ctx.author.id,
         "channel_id": channel.id,
         "message": message,
         "time": datetime.now(timezone.utc).isoformat()
     })
+
     try:
-        await ctx.author.send(f"Your anonymous message confession thingy was sent to {channel.mention}")
+        await ctx.author.send(f"Your anonymous message was sent to {channel.mention}")
     except Exception:
-        await ctx.send("Your anonymous message was sent (I couldn't DM you, please open your DMs).", delete_after=5)
+        await ctx.send(
+            "Your anonymous message was sent (I couldn't DM you, please open your DMs).", 
+            delete_after=5
+        )
 
 @bot.command(name="anonlog")
 async def anonlog(ctx, limit: int = 10):
