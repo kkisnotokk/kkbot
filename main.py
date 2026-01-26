@@ -1025,6 +1025,59 @@ async def endpoll(ctx, poll_name):
     # Send results to channel
     await ctx.send(embed=result_embed)
 
+# confession thing
+
+STAFF_ROLE_IDS = [1403721676444926053]
+
+anon_log = []
+
+@bot.command(name="anon")
+async def anon(ctx, channel: discord.TextChannel, *, message):
+    """Send an anonymous message to a channel."""
+    embed = discord.Embed(
+        title="📩 Anonymous Message",
+        description=message,
+        color=discord.Color.purple(),
+        timestamp=datetime.utcnow()
+    )
+    embed.set_footer(text="Sent anonymously")
+    
+    await channel.send(embed=embed)
+    
+    anon_log.append({
+        "author_id": ctx.author.id,
+        "channel_id": channel.id,
+        "message": message,
+        "time": datetime.utcnow().isoformat()
+    })
+    
+    await ctx.reply(f"✅ Your anonymous message was sent to {channel.mention}", ephemeral=True)
+
+@bot.command(name="anonlog")
+async def anonlog(ctx, limit: int = 10):
+    """View recent anonymous messages (staff only)."""
+    if not any(role.id in STAFF_ROLE_IDS for role in ctx.author.roles):
+        await ctx.reply("❌ You do not have permission to view logs.")
+        return
+    
+    if not anon_log:
+        await ctx.reply("No anonymous messages yet.")
+        return
+
+    embed = discord.Embed(
+        title="📄 Recent Anonymous Messages",
+        color=discord.Color.gold(),
+        timestamp=datetime.utcnow()
+    )
+    
+    for entry in anon_log[-limit:]:
+        user = f"<@{entry['author_id']}>"
+        ch = bot.get_channel(entry["channel_id"])
+        msg = entry["message"]
+        embed.add_field(name=f"{ch}", value=f"{msg}\n*Sent by {user}*", inline=False)
+    
+    await ctx.send(embed=embed)
+
 # ---
 # Code Merged from Another bot
 # ---
