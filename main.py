@@ -1070,6 +1070,21 @@ anon_log = []
 @bot.command(name="anon")
 async def anon(ctx, channel: discord.TextChannel, *, message):
     """Send an anonymous message to a channel and DM the sender a confirmation."""
+     if not message:
+        await ctx.send("❌ You need to provide a message to send.")
+        return
+
+    channel = channel or ctx.channel
+
+    user_perms = channel.permissions_for(ctx.author)
+    if not user_perms.send_messages:
+        await ctx.send("❌ You don't have permission to send messages in that channel.")
+        return
+
+    bot_perms = channel.permissions_for(ctx.guild.me)
+    if not bot_perms.send_messages:
+        await ctx.send("❌ I don't have permission to send messages in that channel.")
+        return
     try:
         await ctx.message.delete()
     except Exception:
