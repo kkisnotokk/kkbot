@@ -248,23 +248,6 @@ async def on_message(message):
     await bot.process_commands(message)
 
 @bot.event
-async def on_message_delete(message):
-    if message.author.bot:
-        return
-
-    sniped_messages[message.channel.id] = {
-        "content": message.content,
-        "author": message.author,
-        "time": message.created_at
-    }
-
-    await asyncio.sleep(60)
-    if sniped_messages.get(message.channel.id) and sniped_messages[message.channel.id]["content"] == message.content:
-        del sniped_messages[message.channel.id]
-
-
-
-@bot.event
 async def on_message_edit(before, after):
     if before.author.bot:
         return
