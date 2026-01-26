@@ -1074,6 +1074,7 @@ async def anonchannel(ctx, channel: discord.TextChannel):
     await ctx.send(f"Anonymous messages will now be sent to {channel.mention}")
 
 @bot.command(name="anon")
+@commands.cooldown(1, 30, commands.BucketType.user)
 async def anon(ctx, *, message):
     """Send an anonymous message to the configured anon channel and DM the sender a confirmation."""
 
@@ -1125,6 +1126,14 @@ async def anon(ctx, *, message):
     except Exception:
         await ctx.send(
             "Your anonymous message was sent (I couldn't DM you, please open your DMs).",
+            delete_after=5
+        )
+
+@anon.error
+async def anon_error(ctx, error):
+    if isinstance(error, commands.CommandOnCooldown):
+        await ctx.send(
+            f"⏳ You're sending anonymous messages too fast. Try again in {error.retry_after:.1f} seconds.",
             delete_after=5
         )
 
