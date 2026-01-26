@@ -258,7 +258,7 @@ async def on_message_edit(before, after):
         "before": before.content,
         "after": after.content,
         "author": before.author,
-        "time": before.edited_at
+        "time": datetime.utcnow()
     }
 
 @bot.event
@@ -936,7 +936,7 @@ async def snipeall(ctx):
         return await ctx.send("Nope, nothing **AND I MEAN NOTHING** was deleted in the last minute <:d_:1409192999136792766>")
 
     embed = discord.Embed(
-        title="# GET SNIPED <:KEKW:1363718257835769916>\n Here are **ALL** deleted messages in the past minute",
+        title="GET SNIPED <:KEKW:1363718257835769916>\nHere are **ALL** deleted messages in the past minute",
         color=discord.Color.orange()
     )
 
@@ -948,6 +948,7 @@ async def snipeall(ctx):
         if msg.get("attachments"):
             value += "\nAttachments: " + "\n".join(msg["attachments"])
         embed.add_field(name=f"{author.display_name} ({time_str})", value=value, inline=False)
+        embed.set_footer(text=f"tsk tsk tsk")
 
     await ctx.send(embed=embed)
 
