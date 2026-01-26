@@ -1135,6 +1135,61 @@ async def anonlog(ctx, limit: int = 10):
     
     await ctx.send(embed=embed)
 
+# og formated snipe commands
+@bot.command(help="Snupes the most recently deleted message in this channel (plain text)")
+async def snupe(ctx):
+    snipe_data = sniped_messages.get(ctx.channel.id)
+    if snipe_data:
+        time_diff = int((discord.utils.utcnow() - snipe_data["time"]).total_seconds())
+        await ctx.send(
+            f"# Deleted message by **{snipe_data['author']}** ({time_diff} seconds ago):\n"
+            f"---\n>>> {snipe_data['content']}"
+        )
+    else:
+        await ctx.send("There's nothing to snupe, stop being paranoid lmao")
+
+
+@bot.command(help="Snupes all deleted messages from the past 60 seconds in this channel (plain text)")
+async def snupeall(ctx):
+    logs = deleted_message_logs.get(ctx.channel.id, [])
+    if not logs:
+        return await ctx.send(
+            "Nope, nothing **AND I MEAN NOTHING** was deleted in the last minute <:d_:1409192999136792766>"
+        )
+
+    lines = []
+    for msg in logs:
+        time_diff = (discord.utils.utcnow() - msg["time"]).seconds
+        lines.append(f"**{msg['author']}** ({time_diff}s ago): {msg['content']}")
+
+    await ctx.send(
+        f"# GET SNUPED <:KEKW:1363718257835769916>:\n"
+        f"Here are **ALL** deleted messages in the past minute \n"
+        + "\n".join(lines[:10])
+        + f"\n-# {ctx.author.name} used <snupeall"
+    )
+
+
+@bot.command(help="Snupes the last edited message in this channel (plain text)")
+async def editsnupe(ctx):
+    data = edited_messages.get(ctx.channel.id)
+    if data:
+        await ctx.send(
+            f"A message was edited by... \n"
+            f"# **{data['author']}**\n"
+            f" # <:d_:1409192999136792766><:d_:1409192999136792766><:d_:1409192999136792766> \n"
+            f"-# ◄══════════════════════►\n"
+            f"***Before:*** {data['before']}\n"
+            f"-# ◄══════════════════════►\n"
+            f"***After:*** {data['after']}\n"
+            f"-# {ctx.author.name} used <editsnupe"
+        )
+    else:
+        await ctx.send(
+            "No message was edited in the last minute, so you're either late or paranoid."
+        )
+
+
 # ---
 # Code Merged from Another bot
 # ---
