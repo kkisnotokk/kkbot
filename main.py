@@ -8,7 +8,7 @@ import asyncio
 import aiohttp
 import json
 import time
-from datetime import datetime, timedelta
+import datetime
 
 def format_time_diff(past_time: datetime) -> str:
     """
