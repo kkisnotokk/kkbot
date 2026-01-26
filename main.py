@@ -8,7 +8,7 @@ import asyncio
 import aiohttp
 import json
 import time
-import datetime
+from datetime import datetime, timezone, timedelta
 
 def format_time_diff(past_time: datetime) -> str:
     """
@@ -255,7 +255,7 @@ async def on_message_edit(before, after):
         "before": before.content,
         "after": after.content,
         "author": before.author,
-        "time": datetime.now(timezone.utc)
+        "time": before.edited_at or datetime.now(timezone.utc)
     }
 
 @bot.event
