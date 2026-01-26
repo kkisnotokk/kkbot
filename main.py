@@ -2,7 +2,6 @@ import discord
 from discord.ext import commands
 import os
 from dotenv import load_dotenv
-# from discord.utils import escape_mentions, escape_markdown  # unused; keep or remove
 import random
 import re
 import asyncio
@@ -10,57 +9,6 @@ import aiohttp
 import json
 import time
 from datetime import datetime, timedelta
-
-# ==============================
-# SHARDS ECONOMY (NEW SYSTEM)
-# ==============================
-
-SHARDS_ECON_FILE = "/app/data/shards_economy.json"
-
-def load_shards_econ():
-    if not os.path.exists(SHARDS_ECON_FILE):
-        return {
-            "users": {},
-            "meta": {
-                "last_daily_tick": None,
-                "place_emojis": {
-                    "1": "🥇",
-                    "2": "🥈",
-                    "3": "🥉"
-                }
-            }
-        }
-    with open(SHARDS_ECON_FILE, "r") as f:
-        return json.load(f)
-
-def save_shards_econ(data):
-    with open(SHARDS_ECON_FILE, "w") as f:
-        json.dump(data, f, indent=4)
-
-shards_econ = load_shards_econ()
-def create_user_account(user_id, nick):
-    shards_econ["users"][str(user_id)] = {
-        "nick": nick,
-        "aliases": [],
-        "balances": {
-            "shards": 0,
-            "fragments": 10.0,
-            "pink_fragments": 0,
-            "relics": 0
-        },
-        "items": {},
-        "vendor": {"enabled": False, "fragments_since_pink": 0},
-        "mining": {},
-        "protection": {}
-    }
-
-def get_account(user):
-    uid = str(user.id)
-    if uid not in shards_econ["users"]:
-        create_user_account(uid, user.display_name)
-        save_shards_econ(shards_econ)
-    return shards_econ["users"][uid]
-
 
 # ==== POLL SYSTEM ====
 
@@ -116,7 +64,7 @@ def make_poll_embed(poll_name, data, closed=False):
         embed.color = discord.Color.green()
     return embed
 
-# Instant run-off poll function thing
+# Instant run-off poll function
 def compute_irv_winner(votes, options):
     remaining = set(options)
     
@@ -176,44 +124,15 @@ def format_tierlist(tierlist_id, tierlist):
     return output
 
 # Presets are now server-specific
-# Structure: { guild_id: { preset_name: [values...] } }
 server_presets = {}
 
-# Built-in presets (always available across all servers)
 built_in_presets = {
     "rplyr": [
-        "king blunderer",
-        "apollix",
-        "Kuyicon",
-        "Emily",
-        "silvy",
-        "no one",
-        "Pezut",
-        "Chezmosis",
-        "Py Rick",
-        "M",
-        "TampliteSK",
-        "Almostgood",
-        "Anti",
-        "Chicken Nugget",
-        "Ral",
-        "darth vader",
-        "erixero",
-        "Beniu1305",
-        "Ghoda",
-        "jsaidoru",
-        "Surviv_34",
-        "Mrsir_real",
-        "Kan",
-        "!kk!",
-        "ManosSef",
-        "myloRAHH",
-        "NotBaltic",
-        "sted",
-        "SudokuFan",
-        "vivid",
-        "Sealandball",
-        "ⁱᶜᵉ³"
+        "king blunderer", "apollix", "Kuyicon", "Emily", "silvy", "no one", "Pezut",
+        "Chezmosis", "Py Rick", "M", "TampliteSK", "Almostgood", "Anti", "Chicken Nugget",
+        "Ral", "darth vader", "erixero", "Beniu1305", "Ghoda", "jsaidoru", "Surviv_34",
+        "Mrsir_real", "Kan", "!kk!", "ManosSef", "myloRAHH", "NotBaltic", "sted", "SudokuFan",
+        "vivid", "Sealandball", "ⁱᶜᵉ³"
     ],
     "rma": ["player 01", "player 02", "player 03", "player 04", "player 05",
             "player 06", "player 07", "player 08", "player 09", "player 10",
@@ -293,8 +212,6 @@ async def on_ready():
 async def on_message(message):
     if message.author.bot:
         return
-
-    # Manually handle <echo
     try:
         if message.content.startswith('<echo'):
             await message.delete()
@@ -303,8 +220,6 @@ async def on_message(message):
                 await message.channel.send(text_to_echo)
     except Exception as e:
         print(f"[on_message error] {e}")
-
-    # Let other commands work as normal
     await bot.process_commands(message)
 
 @bot.event
@@ -1109,58 +1024,6 @@ async def endpoll(ctx, poll_name):
 
     # Send results to channel
     await ctx.send(embed=result_embed)
-
-@bot.command(name="register")
-async def register(ctx):
-    uid = str(ctx.author.id)
-
-    if uid in shards_econ["users"]:
-        return await ctx.send("You are already registered.")
-
-    create_user_account(uid, ctx.author.display_name)
-    save_shards_econ(shards_econ)
-    await ctx.send("✅ Registered! You start with **10 fragments**.")
-@bot.command(name="balance")
-async def balance(ctx, member: discord.Member = None):
-    member = member or ctx.author
-    account = get_account(member)
-    b = account["balances"]
-
-    await ctx.send(
-        f"**{account['nick']}**\n"
-        f"Relics: **{b['relics']}**\n"
-        f"Shards: **{b['shards']}**\n"
-        f"Fragments: **{round(b['fragments'], 1)}**\n"
-        f"Pink Fragments: **{b['pink_fragments']}**"
-    )
-@bot.command(name="leaderboard")
-async def leaderboard(ctx):
-    users = shards_econ["users"]
-    places = shards_econ["meta"]["place_emojis"]
-
-    ranked = sorted(
-        users.values(),
-        key=lambda u: (
-            u["balances"]["shards"],
-            u["balances"]["fragments"],
-            u["balances"]["relics"]
-        ),
-        reverse=True
-    )
-
-    lines = ["Written as Relics | Shards | Fragments\n"]
-
-    for i, u in enumerate(ranked, start=1):
-        emoji = places.get(str(i), "🥛")
-        b = u["balances"]
-        lines.append(
-            f"{emoji} **{u['nick']}** — {b['relics']} | {b['shards']} | {round(b['fragments'], 1)}"
-        )
-
-    await ctx.send("\n".join(lines[:15]))
-
-
-
 
 # ---
 # Code Merged from Another bot
