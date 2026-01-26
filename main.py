@@ -222,7 +222,7 @@ STARTING_TIME = 12 * 60 * 60  # 12 hours
 chess_games = {}
 edited_messages = {}       
 deleted_message_logs = {}  
-
+anon_channels = {}
 # ---------------------------
 # EVENTS
 # ---------------------------
@@ -1067,17 +1067,31 @@ STAFF_ROLE_IDS = [1403721676444926053]
 
 anon_log = []
 
+@bot.command(name="anonchannel")
+@commands.has_permissions(manage_guild=True)
+async def anonchannel(ctx, channel: discord.TextChannel):
+    anon_channels[ctx.guild.id] = channel.id
+    await ctx.send(f"Anonymous messages will now be sent to {channel.mention}")
+
 @bot.command(name="anon")
-async def anon(ctx, channel: discord.TextChannel, *, message):
-    """Send an anonymous message to a channel and DM the sender a confirmation."""
-    user_perms = channel.permissions_for(ctx.author)
-    if not user_perms.send_messages:
-        await ctx.send("❌ You don't have permission to send messages in that channel.", delete_after=5)
+async def anon(ctx, *, message):
+    """Send an anonymous message to the configured anon channel and DM the sender a confirmation."""
+
+    # Check if anon channel is set
+    channel_id = anon_channels.get(ctx.guild.id)
+    if not channel_id:
+        await ctx.send(
+            "set up for this command is not complete; ping the staff",
+            delete_after=6
+        )
         return
 
-    bot_perms = channel.permissions_for(ctx.guild.me)
-    if not bot_perms.send_messages:
-        await ctx.send("❌ I don't have permission to send messages in that channel.", delete_after=5)
+    channel = ctx.guild.get_channel(channel_id)
+    if channel is None:
+        await ctx.send(
+            "set up for this command is not complete; ping the staff",
+            delete_after=6
+        )
         return
 
     try:
@@ -1092,9 +1106,10 @@ async def anon(ctx, channel: discord.TextChannel, *, message):
         timestamp=datetime.now(timezone.utc)
     )
     embed.set_footer(text="Sent anonymously")
-    
+
     await channel.send(embed=embed)
-    
+
+    # Log (unchanged)
     anon_log.append({
         "author_id": ctx.author.id,
         "channel_id": channel.id,
@@ -1102,11 +1117,14 @@ async def anon(ctx, channel: discord.TextChannel, *, message):
         "time": datetime.now(timezone.utc).isoformat()
     })
 
+    # DM confirmation (unchanged)
     try:
-        await ctx.author.send(f"Your anonymous message was sent to {channel.mention}")
+        await ctx.author.send(
+            f"Your anonymous message confession thingy was sent to {channel.mention}"
+        )
     except Exception:
         await ctx.send(
-            "Your anonymous message was sent (I couldn't DM you, please open your DMs).", 
+            "Your anonymous message was sent (I couldn't DM you, please open your DMs).",
             delete_after=5
         )
 
