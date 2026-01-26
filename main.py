@@ -10,16 +10,30 @@ import json
 import time
 from datetime import datetime, timedelta
 
-def format_time_diff(past_time):
-    now = discord.utils.utcnow()
-    diff = int((now - past_time).total_seconds())
-    hours, remainder = divmod(diff, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    parts = []
-    if hours: parts.append(f"{hours}h")
-    if minutes: parts.append(f"{minutes}m")
-    parts.append(f"{seconds}s")
-    return " ".join(parts) + " ago"
+def format_time_diff(past_time: datetime) -> str:
+    """
+    Returns a readable time difference between `past_time` and now.
+    Handles both naive and aware datetime objects safely.
+    """
+    
+    if past_time.tzinfo is None:
+        past_time = past_time.replace(tzinfo=timezone.utc)
+
+    now = datetime.now(timezone.utc)
+
+    diff_seconds = int((now - past_time).total_seconds())
+
+    if diff_seconds < 60:
+        return f"{diff_seconds}s ago"
+    elif diff_seconds < 3600:
+        minutes = diff_seconds // 60
+        return f"{minutes}m ago"
+    elif diff_seconds < 86400:
+        hours = diff_seconds // 3600
+        return f"{hours}h ago"
+    else:
+        days = diff_seconds // 86400
+        return f"{days}d ago"
 
 # ==== POLL SYSTEM ====
 
@@ -258,7 +272,7 @@ async def on_message_edit(before, after):
         "before": before.content,
         "after": after.content,
         "author": before.author,
-        "time": datetime.utcnow()
+        "time": datetime.now(timezone.utc)
     }
 
 @bot.event
@@ -294,7 +308,7 @@ async def on_message_delete(message):
 async def poll_autoclose():
     await bot.wait_until_ready()
     while not bot.is_closed():
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         for name, data in list(polls.items()):
             if not data.get("closed", False) and datetime.fromisoformat(data["end_time"]) <= now:
                 data["closed"] = True
@@ -973,7 +987,7 @@ async def createpoll(ctx, *, args):
         "question": question,
         "options": {opt: {} for opt in options},
         "votes": {},
-        "end_time": (datetime.utcnow() + duration_td).isoformat(),
+        "end_time": (datetime.now(timezone.utc) + duration_td).isoformat(),
         "channel": ctx.channel.id,
         "message_id": None,
         "closed": False
@@ -1081,7 +1095,7 @@ async def anon(ctx, channel: discord.TextChannel, *, message):
         title="📩 Anonymous Message",
         description=message,
         color=discord.Color.purple(),
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
     embed.set_footer(text="Sent anonymously")
     
@@ -1090,7 +1104,7 @@ async def anon(ctx, channel: discord.TextChannel, *, message):
         "author_id": ctx.author.id,
         "channel_id": channel.id,
         "message": message,
-        "time": datetime.utcnow().isoformat()
+        "time": datetime.now(timezone.utc).isoformat()
     })
     try:
         await ctx.author.send(f"Your anonymous message confession thingy was sent to {channel.mention}")
@@ -1111,7 +1125,7 @@ async def anonlog(ctx, limit: int = 10):
     embed = discord.Embed(
         title="📄 Recent Anonymous Messages",
         color=discord.Color.gold(),
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
     
     for entry in anon_log[-limit:]:
