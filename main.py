@@ -19,7 +19,7 @@ def format_time_diff(past_time: datetime) -> str:
     if past_time.tzinfo is None:
         past_time = past_time.replace(tzinfo=timezone.utc)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     diff_seconds = int((now - past_time).total_seconds())
 
@@ -291,7 +291,7 @@ async def on_message_delete(message):
 async def poll_autoclose():
     await bot.wait_until_ready()
     while not bot.is_closed():
-        now = datetime.now(timezone.utc)
+        now = datetime.datetime.now(datetime.timezone.utc)
         for name, data in list(polls.items()):
             if not data.get("closed", False) and datetime.fromisoformat(data["end_time"]) <= now:
                 data["closed"] = True
