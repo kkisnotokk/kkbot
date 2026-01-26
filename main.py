@@ -10,6 +10,17 @@ import json
 import time
 from datetime import datetime, timedelta
 
+def format_time_diff(past_time):
+    now = discord.utils.utcnow()
+    diff = int((now - past_time).total_seconds())
+    hours, remainder = divmod(diff, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    parts = []
+    if hours: parts.append(f"{hours}h")
+    if minutes: parts.append(f"{minutes}m")
+    parts.append(f"{seconds}s")
+    return " ".join(parts) + " ago"
+
 # ==== POLL SYSTEM ====
 
 def parse_duration(duration_str):
@@ -429,14 +440,28 @@ async def roll(ctx, *, args):
 @bot.command(help="Snipes the most recently deleted message in this channel")
 async def snipe(ctx):
     snipe_data = sniped_messages.get(ctx.channel.id)
+    if not snipe_data:
+        return await ctx.send("There's nothing to snipe, stop being paranoid lmao")
 
-    if snipe_data:
-        time_diff = int((discord.utils.utcnow() - snipe_data["time"]).total_seconds())
-        await ctx.send(
-            f"# Deleted message by **{snipe_data['author']}** ({time_diff} seconds ago):\n---\n>>> {snipe_data['content']}"
-        )
-    else:
-        await ctx.send("There's nothing to snipe, stop being paranoid lmao")
+    time_str = format_time_diff(snipe_data["time"])
+    author = snipe_data["author"]
+    content = snipe_data["content"]
+
+    embed = discord.Embed(
+        title="Well well well what do we have here",
+        description=content,
+        color=discord.Color.orange(),
+        timestamp=snipe_data["time"]
+    )
+    embed.set_author(name=author.display_name, icon_url=author.avatar.url if author.avatar else None)
+    embed.set_footer(text=f"Deleted {time_str}")
+
+    # Include attachments if any
+    if snipe_data.get("attachments"):
+        embed.add_field(name="Attachments", value="\n".join(snipe_data["attachments"]))
+
+    await ctx.send(embed=embed)
+
 
 @bot.command(help="Who'll be 'pinged' this time?")
 async def pingroulette(ctx):
@@ -883,20 +908,26 @@ async def endgame(ctx, game_id: str):
 @bot.command(help="Snipes the last edited message in this channel")
 async def editsnipe(ctx):
     data = edited_messages.get(ctx.channel.id)
-    if data:
-        await ctx.send(
-            f"A message was edited by... \n"
-            f"# **{data['author']}**\n"
-            f" # <:d_:1409192999136792766><:d_:1409192999136792766><:d_:1409192999136792766> \n"
-            f"-# ◄══════════════════════►\n"
-            f"***Before:*** {data['before']}\n"
-            f"-# ◄══════════════════════►\n"
-            f"***After:*** {data['after']}\n"
-            f"-# {ctx.author.name} used <editsnipe"
-        )
-    else:
-        await ctx.send("No message was edited in the last minute, so you're either late or paranoid.")
+    if not data:
+        return await ctx.send("No message was edited in the last minute, so you're either late or paranoid.")
 
+    time_str = format_time_diff(data["time"])
+    author = data["author"]
+
+    embed = discord.Embed(
+        title="# A message was edited <:d_:1409192999136792766><:d_:1409192999136792766><:d_:1409192999136792766>",
+        color=discord.Color.orange(),
+        timestamp=data["time"]
+    )
+    embed.set_author(name=author.display_name, icon_url=author.avatar.url if author.avatar else None)
+    embed.add_field(name="Before", value=data["before"], inline=False)
+    embed.add_field(name="After", value=data["after"], inline=False)
+    embed.set_footer(text=f"Edited {time_str}")
+
+    if data.get("attachments"):
+        embed.add_field(name="Attachments", value="\n".join(data["attachments"]))
+
+    await ctx.send(embed=embed)
 
 @bot.command(help="Snipes all deleted messages from the past 60 seconds in this channel")
 async def snipeall(ctx):
@@ -904,14 +935,21 @@ async def snipeall(ctx):
     if not logs:
         return await ctx.send("Nope, nothing **AND I MEAN NOTHING** was deleted in the last minute <:d_:1409192999136792766>")
 
-    lines = []
-    for msg in logs:
-        time_diff = (discord.utils.utcnow() - msg["time"]).seconds
-        lines.append(f"**{msg['author']}** ({time_diff}s ago): {msg['content']}")
+    embed = discord.Embed(
+        title="# GET SNIPED <:KEKW:1363718257835769916>\n Here are **ALL** deleted messages in the past minute",
+        color=discord.Color.orange()
+    )
 
-    await ctx.send(
-        f"# GET SNIPED <:KEKW:1363718257835769916>:\n"
-        f"Here are **ALL** deleted messages in the past minute \n" + "\n".join(lines[:10]) + "\n" + f"-# {ctx.author.name} used <snipeall")
+    for msg in logs[:10]:
+        author = msg["author"]
+        time_str = format_time_diff(msg["time"])
+        text = msg["content"]
+        value = f"{text}"
+        if msg.get("attachments"):
+            value += "\nAttachments: " + "\n".join(msg["attachments"])
+        embed.add_field(name=f"{author.display_name} ({time_str})", value=value, inline=False)
+
+    await ctx.send(embed=embed)
 
 # Poll stuff:
 
