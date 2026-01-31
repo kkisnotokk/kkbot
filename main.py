@@ -10,6 +10,9 @@ import json
 import time
 from datetime import datetime, timezone, timedelta
 
+DATA_FILE = "/data/anon_config.json"
+
+
 def format_time_diff(past_time: datetime) -> str:
     """
     Returns a readable time difference between `past_time` and now.
@@ -222,7 +225,11 @@ STARTING_TIME = 12 * 60 * 60  # 12 hours
 chess_games = {}
 edited_messages = {}       
 deleted_message_logs = {}  
-anon_channels = {}
+if os.path.exists(DATA_FILE):
+    with open(DATA_FILE, "r") as f:
+        anon_channels = json.load(f)
+else:
+    anon_channels = {}
 # ---------------------------
 # EVENTS
 # ---------------------------
@@ -260,7 +267,8 @@ async def on_message_edit(before, after):
 
 @bot.event
 async def on_message_delete(message):
-    if message.author.bot:
+    
+    if message.content.startswith("<anon"):
         return
 
     sniped_messages[message.channel.id] = {
@@ -1070,7 +1078,9 @@ anon_log = []
 @bot.command(name="anonchannel")
 @commands.has_permissions(manage_guild=True)
 async def anonchannel(ctx, channel: discord.TextChannel):
-    anon_channels[ctx.guild.id] = channel.id
+    anon_channels[str(ctx.guild.id)] = channel.id
+    with open(DATA_FILE, "w") as f:
+        json.dump(anon_channels, f)
     await ctx.send(f"Anonymous messages will now be sent to {channel.mention}")
 
 @bot.command(name="anon")
@@ -1079,7 +1089,7 @@ async def anon(ctx, *, message):
     """Send an anonymous message to the configured anon channel and DM the sender a confirmation."""
 
     # Check if anon channel is set
-    channel_id = anon_channels.get(ctx.guild.id)
+    channel_id = anon_channels.get(str(ctx.guild.id))
     if not channel_id:
         await ctx.send(
             "set up for this command is not complete; ping the staff",
