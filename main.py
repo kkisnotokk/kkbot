@@ -14,7 +14,7 @@ os.makedirs("/data", exist_ok=True)
 
 DATA_FILE = "/data/anon_config.json"
 
-ANON_LOG_FILE = "anon_log.json"
+ANON_LOG_FILE = "/data/anon_log.json"
 
 def load_anon_log():
     if os.path.exists(ANON_LOG_FILE):
@@ -1099,7 +1099,7 @@ async def endpoll(ctx, poll_name):
     save_polls(polls)
 
     # Compute winner
-      if poll["votes"]:
+    if poll["votes"]:
         winner, final_counts = compute_irv_winner(poll["votes"], list(poll["options"].keys()))
         if isinstance(winner, list):
             winner_text = f"Tie! Poll creator must decide: {', '.join(winner)}"
@@ -1131,8 +1131,6 @@ async def endpoll(ctx, poll_name):
 # confession thing
 
 STAFF_ROLE_IDS = [1403721676444926053]
-
-anon_log = []
 
 @bot.command(name="anonchannel")
 @commands.has_permissions(manage_guild=True)
@@ -1179,13 +1177,13 @@ async def anon(ctx, *, message):
 
     await channel.send(embed=embed)
 
-anon_log.append({
-    "author_id": ctx.author.id,
-    "channel_id": channel.id,
-    "message": message,
-    "time": datetime.now(timezone.utc).isoformat()
-})
-save_anon_log()
+    anon_log.append({
+        "author_id": ctx.author.id,
+        "channel_id": channel.id,
+        "message": message,
+        "time": datetime.now(timezone.utc).isoformat()
+    })
+    save_anon_log()
 
     # DM confirmation (unchanged)
     try:
@@ -1236,7 +1234,7 @@ async def anonlog(ctx, limit: int = 10):
 async def snupe(ctx):
     snipe_data = sniped_messages.get(ctx.channel.id)
     if snipe_data:
-        time_diff = int((discord.utils.utcnow() - msg["time"]).total_seconds())
+        time_diff = int((discord.utils.utcnow() - snipe_data["time"]).total_seconds())
         await ctx.send(
             f"# Deleted message by **{snipe_data['author']}** ({time_diff} seconds ago):\n"
             f"---\n>>> {snipe_data['content']}"
@@ -1255,7 +1253,7 @@ async def snupeall(ctx):
 
     lines = []
     for msg in logs:
-        time_diff = (discord.utils.utcnow() - msg["time"]).total_seconds()
+        time_diff = int((discord.utils.utcnow() - msg["time"]).total_seconds())
         lines.append(f"**{msg['author']}** ({time_diff}s ago): {msg['content']}")
 
     await ctx.send(
