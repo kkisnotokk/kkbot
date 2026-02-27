@@ -10,7 +10,23 @@ import json
 import time
 from datetime import datetime, timezone, timedelta
 
+os.makedirs("/data", exist_ok=True)
+
 DATA_FILE = "/data/anon_config.json"
+
+ANON_LOG_FILE = "anon_log.json"
+
+def load_anon_log():
+    if os.path.exists(ANON_LOG_FILE):
+        with open(ANON_LOG_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_anon_log():
+    with open(ANON_LOG_FILE, "w") as f:
+        json.dump(anon_log, f, indent=4)
+
+anon_log = load_anon_log()
 
 
 def format_time_diff(past_time: datetime) -> str:
@@ -124,7 +140,6 @@ def compute_irv_winner(votes, options):
         if len(remaining) == 1:
             return next(iter(remaining)), counts
 
-os.makedirs("/app/data", exist_ok=True)
 
 TIERLISTS_FILE = "tierlists.json"
 
@@ -216,7 +231,7 @@ intents.members = True
 bot = commands.Bot(
     command_prefix="<",
     intents=intents,
-    help_command=commands.DefaultHelpCommand(),
+    help_command=None,
 )
 
 sniped_messages = {}
@@ -267,25 +282,36 @@ async def on_message_edit(before, after):
 
 @bot.event
 async def on_message_delete(message):
-    
     if message.content.startswith("<anon"):
         return
 
-    sniped_messages[message.channel.id] = {
+    msg_data = {
+        "id": message.id,
         "content": message.content,
         "author": message.author,
         "time": message.created_at
     }
 
+    sniped_messages[message.channel.id] = msg_data
+
     if message.channel.id not in deleted_message_logs:
         deleted_message_logs[message.channel.id] = []
-    deleted_message_logs[message.channel.id].append({
-        "content": message.content,
-        "author": message.author,
-        "time": message.created_at
-    })
+    deleted_message_logs[message.channel.id].append(msg_data)
 
-    await asyncio.sleep(60)
+    async def cleanup(msg_id, channel_id):
+        await asyncio.sleep(60)
+        if sniped_messages.get(channel_id, {}).get("id") == msg_id:
+            del sniped_messages[channel_id]
+        if channel_id in deleted_message_logs:
+            deleted_message_logs[channel_id] = [
+                m for m in deleted_message_logs[channel_id] if m["id"] != msg_id
+            ]
+            if not deleted_message_logs[channel_id]:
+                del deleted_message_logs[channel_id]
+
+    asyncio.create_task(cleanup(message.id, message.channel.id))
+
+    
     if sniped_messages.get(message.channel.id) and sniped_messages[message.channel.id]["content"] == message.content:
         del sniped_messages[message.channel.id]
 
@@ -321,6 +347,52 @@ async def poll_autoclose():
 # ---------------------------
 # COMMANDS
 # ---------------------------
+
+@bot.command(name="help")
+async def help_command(ctx, *, command_name: str = None):
+    if command_name:
+        cmd = bot.get_command(command_name)
+        if cmd is None:
+            await ctx.send(f"❌ No command called `{command_name}` found.")
+            return
+        embed = discord.Embed(
+            title=f"<{cmd.name}",
+            description=cmd.help or "No description provided.",
+            color=discord.Color.blurple()
+        )
+        if cmd.aliases:
+            embed.add_field(name="Aliases", value=", ".join(f"<{a}" for a in cmd.aliases))
+        await ctx.send(embed=embed)
+        return
+
+    categories = {
+    "Funnies": ["roll", "eightball", "rate", "mock", "gamble", "pingroulette", "rig"],
+    "Snipe": ["snipe", "snipeall", "editsnipe", "snupe", "snupeall", "editsnupe", "threesixtynoscope", "sniper"],
+    "Polls": ["createpoll", "vote", "endpoll"],
+    "Tierlists": ["create", "rank", "removeitem", "deletetierlist", "viewtierlist"],
+    "Reminders": ["remind", "reminders", "cancelreminder"],
+    "Anonymous": ["anon", "anonchannel", "anonlog"],
+    "Chess Timer": ["startgame", "endturn", "viewtime", "endgame"],
+    "Chess Engine Guide": ["chess_engine_tutorial", "boardrepresentation", "evaluation", "minimax", "alphabeta", "moveordering", "transpositiontable"],
+    "Presets": ["addpreset", "deletepreset", "list_roll_presets", "rpreset"],
+    "Utility": ["ping", "echo", "dictionary", "summarize (lobotomized)"],
+    "Commands Made When KK Was High": ["hello", "revive", "reviv", "mango", "lemon", "vivid", "nothing", "kk"],
+}
+    }
+
+    embed = discord.Embed(
+        title="kkbot help",
+        description="Use `<help [command]` for more info on a specific command.",
+        color=discord.Color.blurple()
+    )
+
+    for category, command_list in categories.items():
+        valid_commands = [f"`<{name}`" for name in command_list if bot.get_command(name)]
+        if valid_commands:
+            embed.add_field(name=category, value=", ".join(valid_commands), inline=False)
+
+    embed.set_footer(text="<help [command] for more details on any command")
+    await ctx.send(embed=embed)
 
 @bot.command(help="Greets the user")
 async def hello(ctx):
@@ -384,7 +456,7 @@ async def gamble(ctx):
     else:
         response = f"{slot_display} - Better luck next time."
 
-    await ctx.send(response + f"/n {ctx.author.name} used <gamble")
+    await ctx.send(response + f"\n {ctx.author.name} used <gamble")
 
 @bot.command(help="Choose between words or roll a number (e.g. <roll 10 or <roll red, blue)")
 async def roll(ctx, *, args):
@@ -735,7 +807,6 @@ async def rpreset(ctx, *, text: str):
         else:
             return f"(preset `{preset_name}` doesn't exist)"
 
-    import re
     pattern = re.compile(r"\((.*?)\)")
     result = pattern.sub(replace_preset, text)
 
@@ -1039,16 +1110,39 @@ async def endpoll(ctx, poll_name):
     save_polls(polls)
 
     # Compute winner
-    if poll["votes"]:
-        winner, final_counts = compute_irv_winner(poll["votes"], list(poll["options"].keys()))
-        if isinstance(winner, list):
-            # Tie detected
-            winner_text = f"Tie! Poll creator must decide: {', '.join(winner)}"
-        else:
-            winner_text = winner
-    else:
-        winner_text, final_counts = "No votes", {opt: 0 for opt in poll["options"].keys()}
+    def compute_irv_winner(votes, options):
+    remaining = set(options)
 
+    while remaining:  # guard against empty set
+        counts = {opt: 0 for opt in remaining}
+        for vote in votes.values():
+            for choice in vote:
+                if choice in remaining:
+                    counts[choice] += 1
+                    break
+
+        total_votes = sum(counts.values())
+
+        if total_votes == 0:
+            return list(remaining), counts  # no valid votes cast
+
+        for opt, c in counts.items():
+            if c > total_votes / 2:
+                return opt, counts
+
+        if len(set(counts.values())) == 1:
+            return list(remaining), counts
+
+        min_votes = min(counts.values())
+        losers = [o for o, c in counts.items() if c == min_votes]
+        for l in losers:
+            remaining.remove(l)
+
+        if len(remaining) == 1:
+            return next(iter(remaining)), counts
+
+    return None, {}  # fallback, should never reach here
+    
     # Prepare results embed
     result_embed = discord.Embed(
         title=f"✅ Poll Results — {poll_name}",
@@ -1120,13 +1214,13 @@ async def anon(ctx, *, message):
 
     await channel.send(embed=embed)
 
-    # Log (unchanged)
-    anon_log.append({
-        "author_id": ctx.author.id,
-        "channel_id": channel.id,
-        "message": message,
-        "time": datetime.now(timezone.utc).isoformat()
-    })
+anon_log.append({
+    "author_id": ctx.author.id,
+    "channel_id": channel.id,
+    "message": message,
+    "time": datetime.now(timezone.utc).isoformat()
+})
+save_anon_log()
 
     # DM confirmation (unchanged)
     try:
@@ -1196,7 +1290,7 @@ async def snupeall(ctx):
 
     lines = []
     for msg in logs:
-        time_diff = (discord.utils.utcnow() - msg["time"]).seconds
+        time_diff = (discord.utils.utcnow() - msg["time"]).total_seconds()
         lines.append(f"**{msg['author']}** ({time_diff}s ago): {msg['content']}")
 
     await ctx.send(
@@ -1341,6 +1435,7 @@ print(board.unicode(
     empty_square=".",   # The character for empty squares
     orientation=chess.WHITE  # The orientation of the board
 ))
+```
 Once you are done, continue with the second part - evaluation.
 """, view=EvaluationButton(ctx.bot))
 
