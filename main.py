@@ -111,8 +111,8 @@ def make_poll_embed(poll_name, data, closed=False):
 # Instant run-off poll function
 def compute_irv_winner(votes, options):
     remaining = set(options)
-    
-    while True:
+
+    while remaining:  # guard against empty set
         counts = {opt: 0 for opt in remaining}
         for vote in votes.values():
             for choice in vote:
@@ -121,25 +121,26 @@ def compute_irv_winner(votes, options):
                     break
 
         total_votes = sum(counts.values())
-        # Check for majority
+
+        if total_votes == 0:
+            return list(remaining), counts  # no valid votes cast
+
         for opt, c in counts.items():
             if c > total_votes / 2:
-                return opt, counts  # clear winner
+                return opt, counts
 
-        # Check if all remaining candidates are tied
         if len(set(counts.values())) == 1:
-            return list(remaining), counts  # exact tie
+            return list(remaining), counts
 
-        # Eliminate candidate(s) with lowest votes
         min_votes = min(counts.values())
         losers = [o for o, c in counts.items() if c == min_votes]
         for l in losers:
             remaining.remove(l)
 
-        # Only one candidate left
         if len(remaining) == 1:
             return next(iter(remaining)), counts
 
+    return None, {}  # fallback, should never reach here
 
 TIERLISTS_FILE = "tierlists.json"
 
@@ -311,17 +312,6 @@ async def on_message_delete(message):
 
     asyncio.create_task(cleanup(message.id, message.channel.id))
 
-    
-    if sniped_messages.get(message.channel.id) and sniped_messages[message.channel.id]["content"] == message.content:
-        del sniped_messages[message.channel.id]
-
-    if message.channel.id in deleted_message_logs:
-        deleted_message_logs[message.channel.id] = [
-            msg for msg in deleted_message_logs[message.channel.id] if msg["content"] != message.content
-        ]
-        if not deleted_message_logs[message.channel.id]:
-            del deleted_message_logs[message.channel.id]
-
 async def poll_autoclose():
     await bot.wait_until_ready()
     while not bot.is_closed():
@@ -377,7 +367,6 @@ async def help_command(ctx, *, command_name: str = None):
     "Presets": ["addpreset", "deletepreset", "list_roll_presets", "rpreset"],
     "Utility": ["ping", "echo", "dictionary", "summarize (lobotomized)"],
     "Commands Made When KK Was High": ["hello", "revive", "reviv", "mango", "lemon", "vivid", "nothing", "kk"],
-}
     }
 
     embed = discord.Embed(
@@ -1110,38 +1099,14 @@ async def endpoll(ctx, poll_name):
     save_polls(polls)
 
     # Compute winner
-    def compute_irv_winner(votes, options):
-    remaining = set(options)
-
-    while remaining:  # guard against empty set
-        counts = {opt: 0 for opt in remaining}
-        for vote in votes.values():
-            for choice in vote:
-                if choice in remaining:
-                    counts[choice] += 1
-                    break
-
-        total_votes = sum(counts.values())
-
-        if total_votes == 0:
-            return list(remaining), counts  # no valid votes cast
-
-        for opt, c in counts.items():
-            if c > total_votes / 2:
-                return opt, counts
-
-        if len(set(counts.values())) == 1:
-            return list(remaining), counts
-
-        min_votes = min(counts.values())
-        losers = [o for o, c in counts.items() if c == min_votes]
-        for l in losers:
-            remaining.remove(l)
-
-        if len(remaining) == 1:
-            return next(iter(remaining)), counts
-
-    return None, {}  # fallback, should never reach here
+      if poll["votes"]:
+        winner, final_counts = compute_irv_winner(poll["votes"], list(poll["options"].keys()))
+        if isinstance(winner, list):
+            winner_text = f"Tie! Poll creator must decide: {', '.join(winner)}"
+        else:
+            winner_text = winner
+    else:
+        winner_text, final_counts = "No votes", {opt: 0 for opt in poll["options"].keys()}
     
     # Prepare results embed
     result_embed = discord.Embed(
@@ -1271,7 +1236,7 @@ async def anonlog(ctx, limit: int = 10):
 async def snupe(ctx):
     snipe_data = sniped_messages.get(ctx.channel.id)
     if snipe_data:
-        time_diff = int((discord.utils.utcnow() - snipe_data["time"]).total_seconds())
+        time_diff = int((discord.utils.utcnow() - msg["time"]).total_seconds())
         await ctx.send(
             f"# Deleted message by **{snipe_data['author']}** ({time_diff} seconds ago):\n"
             f"---\n>>> {snipe_data['content']}"
