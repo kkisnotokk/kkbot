@@ -1134,7 +1134,7 @@ STAFF_ROLE_IDS = [1403721676444926053]
 
 @bot.command(name="anonchannel")
 @commands.has_permissions(manage_guild=True)
-async def anonchannel(ctx, channel: discord.TextChannel):
+async def anonchannel(ctx, channel: discord.Channel):
     anon_channels[str(ctx.guild.id)] = channel.id
     with open(DATA_FILE, "w") as f:
         json.dump(anon_channels, f)
