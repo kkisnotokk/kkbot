@@ -1134,11 +1134,55 @@ STAFF_ROLE_IDS = [1403721676444926053]
 
 @bot.command(name="anonchannel")
 @commands.has_permissions(manage_guild=True)
-async def anonchannel(ctx, channel: discord.abc.MessageableChannel):
+async def anonchannel(ctx, channel_id: str):
+    channel_id_clean = channel_id.strip("<#>")
+    try:
+        channel_id_int = int(channel_id_clean)
+    except ValueError:
+        await ctx.send("Gang that channel's invalid smh.")
+        return
+    channel = (
+        ctx.guild.get_channel(channel_id_int)
+        or ctx.guild.get_channel_or_thread(channel_id_int)
+        or bot.get_channel(channel_id_int)
+    )
+    if isinstance(channel, discord.ForumChannel):
+        active_threads = channel.threads
+        if active_threads:
+            thread_list = "\n".join(f"• {t.mention} (`{t.id}`)" for t in active_threads[:5])
+            await ctx.send(
+                f"**{channel.name}** WHAT DO YOU WANT ME TO DO THIS IS A FORUM please target one of its active threads instead:\n{thread_list}"
+            )
+        else:
+            await ctx.send(
+                f"**{channel.name}** is a forum with no active threads (dead chat). Create a thread inside it first, then run this command again."
+            )
+        return
+
+    if channel is None:
+        await ctx.send("Could not find that channel or thread. Make sure I have access to it.")
+        return
+
+    # Validate it's a supported type
+    valid_types = (
+        discord.TextChannel,
+        discord.Thread,
+    )
+
+    if not isinstance(channel, valid_types):
+        await ctx.send("That channel type isn't supported. Please use a text channel or thread.")
+        return
+
     anon_channels[str(ctx.guild.id)] = channel.id
     with open(DATA_FILE, "w") as f:
         json.dump(anon_channels, f)
+
     await ctx.send(f"Anonymous messages will now be sent to {channel.mention}")
+
+
+
+
+
 
 @bot.command(name="anon")
 @commands.cooldown(1, 30, commands.BucketType.user)
@@ -1205,12 +1249,10 @@ async def anon_error(ctx, error):
         )
 
 @bot.command(name="anonlog")
+@commands.has_permissions(manage_guild=True)
 async def anonlog(ctx, limit: int = 10):
     """View recent anonymous messages (staff only)."""
-    if not any(role.id in STAFF_ROLE_IDS for role in ctx.author.roles):
-        await ctx.reply("❌ You do not have permission to view logs.")
-        return
-    
+
     if not anon_log:
         await ctx.reply("No anonymous messages yet.")
         return
