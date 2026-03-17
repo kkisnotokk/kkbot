@@ -1198,7 +1198,7 @@ async def anon(ctx, *, message):
         )
         return
 
-    channel = ctx.guild.get_channel(channel_id)
+    channel = ctx.guild.get_channel_or_thread(channel_id)
     if channel is None:
         await ctx.send(
             "set up for this command is not complete; ping the staff",
@@ -1229,7 +1229,6 @@ async def anon(ctx, *, message):
     })
     save_anon_log()
 
-    # DM confirmation (unchanged)
     try:
         await ctx.author.send(
             f"Your anonymous message confession thingy was sent to {channel.mention}"
