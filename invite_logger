@@ -4,9 +4,7 @@ from datetime import datetime, timezone, timedelta
 import os
 import random
 import re
-import cogs.forum_management as forum_management
 import asyncio
-import cogs.help_command as help_command
 
 def format_ts(dt: datetime, style: str = "F") -> str:
     ts = int(dt.replace(tzinfo=timezone.utc).timestamp())
