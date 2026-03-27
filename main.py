@@ -253,7 +253,7 @@ else:
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user}!")
-    await bot.load_extension("invite_logger")
+    await bot.load_extension("sted_is_the_goat")
     bot.loop.create_task(reminder_loop())
     bot.loop.create_task(poll_autoclose())
 
