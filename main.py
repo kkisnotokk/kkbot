@@ -56,6 +56,7 @@ def format_time_diff(past_time: datetime) -> str:
 
 # ==== POLL SYSTEM ====
 
+
 def parse_duration(duration_str):
     """Parse a duration string like '30', '30m', '1h', '1h30m'."""
     if isinstance(duration_str, int) or duration_str.isdigit():
