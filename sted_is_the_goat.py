@@ -10,8 +10,7 @@ def format_ts(dt: datetime, style: str = "F") -> str:
     ts = int(dt.replace(tzinfo=timezone.utc).timestamp())
     return f"<t:{ts}:{style}>"
 
-LOG_CHANNEL_ID = 1482774398435065949
-FORUMS_CHANNEL_ID = 1482757775833563237
+LOG_CHANNEL_ID = 1392488887133278339
 
 class InviteLogger(commands.Cog):
 
