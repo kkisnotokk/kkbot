@@ -27,9 +27,11 @@ class InviteLogger(commands.Cog):
             except discord.Forbidden: pass
 
     @commands.Cog.listener()
-    async def on_member_join(self,  member: discord.Member):
+    async def on_member_join(self, member: discord.Member):
         guild = member.guild
         ch = self.bot.get_channel(LOG_CHANNEL_ID)
+        if not ch or guild.id != ch.guild.id:
+            return
         before = self.cache.get(guild.id) or []
         try:
             after = await guild.invites()
@@ -70,18 +72,19 @@ class InviteLogger(commands.Cog):
                 for n, v in invite_fields.items():
                     embed.add_field(name=n, value=v, inline=True)
 
-                # embed.add_field(name="Invite URL", value=inv.url, inline=False)
             else:
                 embed.add_field(name="Invite", value="Failed to fetch invite!", inline=False)
 
             await ch.send(embed=embed)
         except discord.Forbidden as e:
-            ch.send(e.with_traceback())
+            await ch.send(e.with_traceback())
 
     
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
         ch = self.bot.get_channel(LOG_CHANNEL_ID)
+        if not ch or member.guild.id != ch.guild.id:
+            return
         embed = discord.Embed(color=0xE74C3C, timestamp=datetime.now(timezone.utc))
         embed.set_author(name="🔴 Member Left", icon_url=member.display_avatar.url)
         embed.set_thumbnail(url=member.display_avatar.url)
@@ -96,6 +99,8 @@ class InviteLogger(commands.Cog):
     async def on_invite_create(self, invite: discord.Invite):
         ch = self.bot.get_channel(LOG_CHANNEL_ID)
         if not ch:
+            return
+        if not invite.guild or invite.guild.id != ch.guild.id:
             return
         
         embed = discord.Embed(color=0x00ADEF, timestamp=datetime.now(timezone.utc))
@@ -118,7 +123,6 @@ class InviteLogger(commands.Cog):
 
         await ch.send(embed=embed)
 
-        # Update invites_cache so no invite slips in between.
         await self.update_invite_cache()
 
 
