@@ -359,7 +359,7 @@ async def help_command(ctx, *, command_name: str = None):
 
     categories = {
     "Funnies": ["roll", "eightball", "rate", "mock", "gamble", "pingroulette", "rig"],
-    "Snipe": ["snipe", "snipeall", "editsnipe", "snupe", "snupeall", "editsnupe", "threesixtynoscope", "sniper"],
+    "Snipe": ["snipe", "snipeall", "editsnipe", "snupe", "snupeall", "editsnupe", "threesixtynoscope", "sniper", "safety"],
     "Polls": ["createpoll", "vote", "endpoll"],
     "Tierlists": ["create", "rank", "removeitem", "deletetierlist", "viewtierlist"],
     "Reminders": ["remind", "reminders", "cancelreminder"],
@@ -529,6 +529,40 @@ async def snipe(ctx):
         embed.add_field(name="Attachments", value="\n".join(snipe_data["attachments"]))
 
     await ctx.send(embed=embed)
+
+@bot.command(name="safety", help="Ngl I think it wipes your CURRENT deleted messages from the snipe (and its varients') logs")
+async def safety(ctx):
+    cleared = False
+    
+    for channel_id, msg in list(sniped_messages.items()):
+        if msg["author"].id == ctx.author.id:
+            del sniped_messages[channel_id]
+            cleared = True
+
+    for channel_id, msgs in list(deleted_message_logs.items()):
+        original_count = len(msgs)
+        deleted_message_logs[channel_id] = [
+            m for m in msgs if m["author"].id != ctx.author.id
+        ]
+        if len(deleted_message_logs[channel_id]) < original_count:
+            cleared = True
+        if not deleted_message_logs[channel_id]:
+            del deleted_message_logs[channel_id]
+
+    for channel_id, data in list(edited_messages.items()):
+        if data["author"].id == ctx.author.id:
+            del edited_messages[channel_id]
+            cleared = True
+
+    try:
+        await ctx.message.delete()
+    except Exception:
+        pass
+
+    if cleared:
+        await ctx.author.send("Damn ain't no way whatever you sent was that tragic")
+    else:
+        await ctx.author.send("What is bro tryna clear sob")
 
 
 @bot.command(help="Who'll be 'pinged' this time?")
