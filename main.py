@@ -1459,14 +1459,6 @@ async def anon_slash(interaction: discord.Interaction, message: str):
         f"✅ Your anonymous message was sent to {channel.mention}.", ephemeral=True
     )
 
-    # Best-effort DM confirmation, matching the old behavior (non-fatal if it fails)
-    try:
-        await interaction.user.send(
-            f"Your anonymous message confession thingy was sent to {channel.mention}"
-        )
-    except Exception:
-        pass
-
 
 # og formated snipe commands
 @bot.command(help="Snupes the most recently deleted message in this channel (plain text)")
