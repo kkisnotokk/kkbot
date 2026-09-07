@@ -19,7 +19,6 @@ ANON_LOG_FILE = "/data/anon_log.json"
 
 
 def load_anon_log():
-
     if os.path.exists(ANON_LOG_FILE):
         with open(ANON_LOG_FILE, "r") as f:
             data = json.load(f)
@@ -35,13 +34,58 @@ def save_anon_log():
 
 anon_log = load_anon_log()
 
+ANON_BANS_FILE = "/data/anon_bans.json"
+
+
+def load_anon_bans():
+    if os.path.exists(ANON_BANS_FILE):
+        with open(ANON_BANS_FILE, "r") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            return data
+    return {}
+
+
+def save_anon_bans():
+    with open(ANON_BANS_FILE, "w") as f:
+        json.dump(anon_bans, f, indent=4)
+
+
+anon_bans = load_anon_bans()
+
+
+def is_anon_banned(guild_id: int, user_id: int) -> bool:
+    return user_id in anon_bans.get(str(guild_id), [])
+
+
+def ban_from_anon(guild_id: int, user_id: int) -> bool:
+    """Returns True if this newly banned the user, False if they were already banned."""
+    key = str(guild_id)
+    banned_list = anon_bans.setdefault(key, [])
+    if user_id in banned_list:
+        return False
+    banned_list.append(user_id)
+    save_anon_bans()
+    return True
+
+
+def unban_from_anon(guild_id: int, user_id: int) -> bool:
+    """Returns True if this removed a ban, False if they weren't banned."""
+    key = str(guild_id)
+    banned_list = anon_bans.get(key, [])
+    if user_id not in banned_list:
+        return False
+    banned_list.remove(user_id)
+    save_anon_bans()
+    return True
+
+
 # Simple in-memory cooldown tracker for the /anon slash command (user_id -> last_used timestamp)
 anon_cooldowns = {}
 ANON_COOLDOWN_SECONDS = 30
 
 
 def format_time_diff(past_time: datetime) -> str:
-
     
     if past_time.tzinfo is None:
         past_time = past_time.replace(tzinfo=timezone.utc)
@@ -256,7 +300,9 @@ if os.path.exists(DATA_FILE):
 else:
     anon_channels = {}
 
-
+# ---------------------------
+# ANON CONFESSIONS: moderator check + persistent reveal button
+# ---------------------------
 
 STAFF_ROLE_IDS = [1403721676444926053]
 
@@ -270,15 +316,17 @@ def is_moderator(member: discord.Member) -> bool:
 
 class RevealAuthorView(discord.ui.View):
 
+
     def __init__(self):
         super().__init__(timeout=None)
 
     @discord.ui.button(
-        label="Reveal Author",
-        style=discord.ButtonStyle.secondary,
+        label="Reveal & Ban Author",
+        style=discord.ButtonStyle.danger,
         custom_id="anon_reveal_button",
     )
     async def reveal_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Must be used in a guild, by a Member (not a DM/webhook), and must be a moderator.
         if interaction.guild is None or not isinstance(interaction.user, discord.Member):
             await interaction.response.send_message(
                 "This can only be used in a server.", ephemeral=True
@@ -287,7 +335,7 @@ class RevealAuthorView(discord.ui.View):
 
         if not is_moderator(interaction.user):
             await interaction.response.send_message(
-                "Only moderators can reveal the author of this message.", ephemeral=True
+                "Only big brother, ahm I mean, moderators can reveal the author of this message.", ephemeral=True
             )
             return
 
@@ -301,10 +349,21 @@ class RevealAuthorView(discord.ui.View):
 
         author_id = entry["author_id"]
         sent_time = entry.get("time")
-        time_line = f"\n Sent: <t:{int(datetime.fromisoformat(sent_time).timestamp())}:F>" if sent_time else ""
+        time_line = f"\n🕒 Sent: <t:{int(datetime.fromisoformat(sent_time).timestamp())}:F>" if sent_time else ""
+
+        # Pressing this button both reveals the sender AND bans them from
+        # sending future anonymous confessions in this server. Moderators can
+        # reverse a mistaken ban with <anonunban @user or <anonunban user_id.
+        newly_banned = ban_from_anon(interaction.guild.id, author_id)
+        ban_line = (
+            "\nThey have been banned from sending anonymous confessions in this server."
+            if newly_banned
+            else "\nThey were already banned from sending anonymous confessions here."
+        )
 
         await interaction.response.send_message(
-            f"This anonymous message was sent by <@{author_id}> (`{author_id}`){time_line}",
+            f"This anonymous message was sent by <@{author_id}> (`{author_id}`){time_line}{ban_line}\n"
+            f"-# Use `<anonunban {author_id}` if this was a mistake.",
             ephemeral=True,
         )
 
@@ -441,7 +500,7 @@ async def help_command(ctx, *, command_name: str = None):
     "Polls": ["createpoll", "vote", "endpoll"],
     "Tierlists": ["create", "rank", "removeitem", "deletetierlist", "viewtierlist"],
     "Reminders": ["remind", "reminders", "cancelreminder"],
-    "Anonymous": ["anonchannel", "anon (IS NOW A SLASH COMMAND)"],
+    "Anonymous": ["anonchannel", "anonunban", "anonbans"],
     "Chess Timer": ["startgame", "endturn", "viewtime", "endgame"],
     "Chess Engine Guide": ["chess_engine_tutorial", "boardrepresentation", "evaluation", "minimax", "alphabeta", "moveordering", "transpositiontable"],
     "Presets": ["addpreset", "deletepreset", "list_roll_presets", "rpreset"],
@@ -1294,10 +1353,43 @@ async def anonchannel(ctx, channel_id: str):
     await ctx.send(f"Anonymous messages will now be sent to {channel.mention}")
 
 
+@bot.command(name="anonunban", help="Unban a user from sending anonymous confessions in this server. Usage: <anonunban @user or <anonunban user_id")
+@commands.has_permissions(manage_guild=True)
+async def anonunban(ctx, user: str):
+    user_id_clean = user.strip("<@!>")
+    try:
+        user_id = int(user_id_clean)
+    except ValueError:
+        await ctx.send("❌ That doesn't look like a valid user mention or ID.")
+        return
+
+    if unban_from_anon(ctx.guild.id, user_id):
+        await ctx.send(f"✅ <@{user_id}> (`{user_id}`) can send anonymous confessions again.")
+    else:
+        await ctx.send(f"That user isn't currently banned from anonymous confessions here.")
+
+
+@bot.command(name="anonbans", help="List users currently banned from sending anonymous confessions in this server")
+@commands.has_permissions(manage_guild=True)
+async def anonbans(ctx):
+    banned_list = anon_bans.get(str(ctx.guild.id), [])
+    if not banned_list:
+        await ctx.send("No one is currently banned from anonymous confessions here.")
+        return
+
+    lines = [f"• <@{uid}> (`{uid}`)" for uid in banned_list]
+    await ctx.send("**🚫 Anonymous confession bans:**\n" + "\n".join(lines))
+
+
 @bot.tree.command(name="anon", description="Send an anonymous confession to this server's configured channel")
 @app_commands.describe(message="What you want to say anonymously")
 async def anon_slash(interaction: discord.Interaction, message: str):
-
+    """
+    Slash-command replacement for the old `<anon` prefix command.
+    Sends an anonymous embed to the configured confessions channel, with a
+    moderator-only "Reveal Author" button attached so staff can identify the
+    sender privately (via an ephemeral reply) without exposing it publicly.
+    """
     if interaction.guild is None:
         await interaction.response.send_message(
             "This command can only be used in a server.", ephemeral=True
@@ -1319,13 +1411,22 @@ async def anon_slash(interaction: discord.Interaction, message: str):
             "Setup for this command is not complete; ping the staff.", ephemeral=True
         )
         return
+
+    if is_anon_banned(guild.id, interaction.user.id):
+        await interaction.response.send_message(
+            "❌ You've been banned from sending anonymous confessions in this server.",
+            ephemeral=True,
+        )
+        return
+
+    # Manual per-user cooldown (mirrors the old 30s cooldown on <anon)
     now = time.time()
     last_used = anon_cooldowns.get(interaction.user.id, 0)
     elapsed = now - last_used
     if elapsed < ANON_COOLDOWN_SECONDS:
         retry_after = ANON_COOLDOWN_SECONDS - elapsed
         await interaction.response.send_message(
-            f"You're sending anonymous messages too fast. Try again in {retry_after:.1f} seconds.",
+            f"⏳ You're sending anonymous messages too fast. Try again in {retry_after:.1f} seconds.",
             ephemeral=True,
         )
         return
@@ -1341,7 +1442,8 @@ async def anon_slash(interaction: discord.Interaction, message: str):
     view = RevealAuthorView()
     sent_message = await channel.send(embed=embed, view=view)
 
-
+    # Register this specific message so the persistent button keeps working
+    # after a restart, and log who sent it for the reveal lookup.
     bot.add_view(view, message_id=sent_message.id)
 
     anon_cooldowns[interaction.user.id] = now
@@ -1357,6 +1459,13 @@ async def anon_slash(interaction: discord.Interaction, message: str):
         f"✅ Your anonymous message was sent to {channel.mention}.", ephemeral=True
     )
 
+    # Best-effort DM confirmation, matching the old behavior (non-fatal if it fails)
+    try:
+        await interaction.user.send(
+            f"Your anonymous message confession thingy was sent to {channel.mention}"
+        )
+    except Exception:
+        pass
 
 
 # og formated snipe commands
