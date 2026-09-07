@@ -1,4 +1,5 @@
 import discord
+from discord import app_commands
 from discord.ext import commands
 import os
 from dotenv import load_dotenv
@@ -16,24 +17,31 @@ DATA_FILE = "/data/anon_config.json"
 
 ANON_LOG_FILE = "/data/anon_log.json"
 
+
 def load_anon_log():
+
     if os.path.exists(ANON_LOG_FILE):
         with open(ANON_LOG_FILE, "r") as f:
-            return json.load(f)
-    return []
+            data = json.load(f)
+        if isinstance(data, dict):
+            return data
+    return {}
+
 
 def save_anon_log():
     with open(ANON_LOG_FILE, "w") as f:
         json.dump(anon_log, f, indent=4)
 
+
 anon_log = load_anon_log()
+
+# Simple in-memory cooldown tracker for the /anon slash command (user_id -> last_used timestamp)
+anon_cooldowns = {}
+ANON_COOLDOWN_SECONDS = 30
 
 
 def format_time_diff(past_time: datetime) -> str:
-    """
-    Returns a readable time difference between `past_time` and now.
-    Handles both naive and aware datetime objects safely.
-    """
+
     
     if past_time.tzinfo is None:
         past_time = past_time.replace(tzinfo=timezone.utc)
@@ -99,7 +107,7 @@ def make_poll_embed(poll_name, data, closed=False):
         third = len([v for v in data["votes"].values() if len(v) > 2 and v[2] == option])
         embed.add_field(
             name=f"{option}",
-            value=f"🥇 **{first}** 🥈 {second} 🥉 {third}",
+            value=f"🥇 **{first}** 🥈 {second} 🥉 {third}",
             inline=False
         )
     if not closed:
@@ -247,6 +255,60 @@ if os.path.exists(DATA_FILE):
         anon_channels = json.load(f)
 else:
     anon_channels = {}
+
+
+
+STAFF_ROLE_IDS = [1403721676444926053]
+
+
+def is_moderator(member: discord.Member) -> bool:
+    """A moderator is anyone with Manage Server, or anyone holding a staff role."""
+    if member.guild_permissions.manage_guild:
+        return True
+    return any(role.id in STAFF_ROLE_IDS for role in member.roles)
+
+
+class RevealAuthorView(discord.ui.View):
+
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(
+        label="Reveal Author",
+        style=discord.ButtonStyle.secondary,
+        custom_id="anon_reveal_button",
+    )
+    async def reveal_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.guild is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message(
+                "This can only be used in a server.", ephemeral=True
+            )
+            return
+
+        if not is_moderator(interaction.user):
+            await interaction.response.send_message(
+                "Only moderators can reveal the author of this message.", ephemeral=True
+            )
+            return
+
+        entry = anon_log.get(str(interaction.message.id))
+        if not entry:
+            await interaction.response.send_message(
+                "No record found for this confession (it may predate this feature).",
+                ephemeral=True,
+            )
+            return
+
+        author_id = entry["author_id"]
+        sent_time = entry.get("time")
+        time_line = f"\n Sent: <t:{int(datetime.fromisoformat(sent_time).timestamp())}:F>" if sent_time else ""
+
+        await interaction.response.send_message(
+            f"This anonymous message was sent by <@{author_id}> (`{author_id}`){time_line}",
+            ephemeral=True,
+        )
+
+
 # ---------------------------
 # EVENTS
 # ---------------------------
@@ -257,6 +319,22 @@ async def on_ready():
     await bot.load_extension("sted_is_the_goat")
     bot.loop.create_task(reminder_loop())
     bot.loop.create_task(poll_autoclose())
+
+    # Re-register the Reveal Author button for every previously sent confession
+    # so it keeps working across bot restarts.
+    for message_id_str in anon_log.keys():
+        try:
+            bot.add_view(RevealAuthorView(), message_id=int(message_id_str))
+        except Exception as e:
+            print(f"[reveal-button re-register error] {e}")
+
+    # Sync the slash command tree (global sync; can take up to an hour to
+    # propagate everywhere the very first time, instant afterwards).
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} slash command(s).")
+    except Exception as e:
+        print(f"[slash sync error] {e}")
 
 @bot.event
 async def on_message(message):
@@ -363,7 +441,7 @@ async def help_command(ctx, *, command_name: str = None):
     "Polls": ["createpoll", "vote", "endpoll"],
     "Tierlists": ["create", "rank", "removeitem", "deletetierlist", "viewtierlist"],
     "Reminders": ["remind", "reminders", "cancelreminder"],
-    "Anonymous": ["anon", "anonchannel", "anonlog"],
+    "Anonymous": ["anonchannel", "anon (IS NOW A SLASH COMMAND)"],
     "Chess Timer": ["startgame", "endturn", "viewtime", "endgame"],
     "Chess Engine Guide": ["chess_engine_tutorial", "boardrepresentation", "evaluation", "minimax", "alphabeta", "moveordering", "transpositiontable"],
     "Presets": ["addpreset", "deletepreset", "list_roll_presets", "rpreset"],
@@ -373,7 +451,7 @@ async def help_command(ctx, *, command_name: str = None):
 
     embed = discord.Embed(
         title="kkbot help",
-        description="Use `<help [command]` for more info on a specific command.",
+        description="Use `<help [command]` for more info on a specific command.\nNote: anonymous confessions now use the `/anon` slash command.",
         color=discord.Color.blurple()
     )
 
@@ -1164,9 +1242,9 @@ async def endpoll(ctx, poll_name):
     # Send results to channel
     await ctx.send(embed=result_embed)
 
-# confession thing
-
-STAFF_ROLE_IDS = [1403721676444926053]
+# ---------------------------
+# Anonymous confessions
+# ---------------------------
 
 @bot.command(name="anonchannel")
 @commands.has_permissions(manage_guild=True)
@@ -1216,95 +1294,70 @@ async def anonchannel(ctx, channel_id: str):
     await ctx.send(f"Anonymous messages will now be sent to {channel.mention}")
 
 
+@bot.tree.command(name="anon", description="Send an anonymous confession to this server's configured channel")
+@app_commands.describe(message="What you want to say anonymously")
+async def anon_slash(interaction: discord.Interaction, message: str):
 
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "This command can only be used in a server.", ephemeral=True
+        )
+        return
 
+    guild = interaction.guild
 
-
-@bot.command(name="anon")
-@commands.cooldown(1, 30, commands.BucketType.user)
-async def anon(ctx, *, message):
-    """Send an anonymous message to the configured anon channel and DM the sender a confirmation."""
-
-    # Check if anon channel is set
-    channel_id = anon_channels.get(str(ctx.guild.id))
+    channel_id = anon_channels.get(str(guild.id))
     if not channel_id:
-        await ctx.send(
-            "set up for this command is not complete; ping the staff",
-            delete_after=6
+        await interaction.response.send_message(
+            "Setup for this command is not complete; ping the staff.", ephemeral=True
         )
         return
 
-    channel = ctx.guild.get_channel_or_thread(channel_id)
+    channel = guild.get_channel_or_thread(channel_id)
     if channel is None:
-        await ctx.send(
-            "set up for this command is not complete; ping the staff",
-            delete_after=6
+        await interaction.response.send_message(
+            "Setup for this command is not complete; ping the staff.", ephemeral=True
         )
         return
-
-    try:
-        await ctx.message.delete()
-    except Exception:
-        pass
+    now = time.time()
+    last_used = anon_cooldowns.get(interaction.user.id, 0)
+    elapsed = now - last_used
+    if elapsed < ANON_COOLDOWN_SECONDS:
+        retry_after = ANON_COOLDOWN_SECONDS - elapsed
+        await interaction.response.send_message(
+            f"You're sending anonymous messages too fast. Try again in {retry_after:.1f} seconds.",
+            ephemeral=True,
+        )
+        return
 
     embed = discord.Embed(
         title="📩 Anonymous Message",
         description=message,
         color=discord.Color.purple(),
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(timezone.utc),
     )
     embed.set_footer(text="Sent anonymously")
 
-    await channel.send(embed=embed)
+    view = RevealAuthorView()
+    sent_message = await channel.send(embed=embed, view=view)
 
-    anon_log.append({
-        "author_id": ctx.author.id,
+
+    bot.add_view(view, message_id=sent_message.id)
+
+    anon_cooldowns[interaction.user.id] = now
+    anon_log[str(sent_message.id)] = {
+        "author_id": interaction.user.id,
         "channel_id": channel.id,
         "message": message,
-        "time": datetime.now(timezone.utc).isoformat()
-    })
+        "time": datetime.now(timezone.utc).isoformat(),
+    }
     save_anon_log()
 
-    try:
-        await ctx.author.send(
-            f"Your anonymous message confession thingy was sent to {channel.mention}"
-        )
-    except Exception:
-        await ctx.send(
-            "Your anonymous message was sent (I couldn't DM you, please open your DMs).",
-            delete_after=5
-        )
-
-@anon.error
-async def anon_error(ctx, error):
-    if isinstance(error, commands.CommandOnCooldown):
-        await ctx.send(
-            f"⏳ You're sending anonymous messages too fast. Try again in {error.retry_after:.1f} seconds.",
-            delete_after=5
-        )
-
-@bot.command(name="anonlog")
-@commands.has_permissions(manage_guild=True)
-async def anonlog(ctx, limit: int = 10):
-    """View recent anonymous messages (staff only)."""
-
-    if not anon_log:
-        await ctx.reply("No anonymous messages yet.")
-        return
-
-    embed = discord.Embed(
-        title="📄 Recent Anonymous Messages",
-        color=discord.Color.gold(),
-        timestamp=datetime.now(timezone.utc)
+    await interaction.response.send_message(
+        f"✅ Your anonymous message was sent to {channel.mention}.", ephemeral=True
     )
-    
-    for entry in anon_log[-limit:]:
-        user = f"<@{entry['author_id']}>"
-        ch = bot.get_channel(entry["channel_id"])
-        msg = entry["message"]
-        embed.add_field(name=f"{ch}", value=f"{msg}\n*Sent by {user}*", inline=False)
-    
-    await ctx.send(embed=embed)
+
+
 
 # og formated snipe commands
 @bot.command(help="Snupes the most recently deleted message in this channel (plain text)")
@@ -1504,4 +1557,3 @@ async def transpositiontable(ctx):
 # ---------------------------
 
 bot.run(TOKEN)
-
