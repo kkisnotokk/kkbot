@@ -19,6 +19,7 @@ ANON_LOG_FILE = "/data/anon_log.json"
 
 
 def load_anon_log():
+
     if os.path.exists(ANON_LOG_FILE):
         with open(ANON_LOG_FILE, "r") as f:
             data = json.load(f)
@@ -38,6 +39,7 @@ ANON_BANS_FILE = "/data/anon_bans.json"
 
 
 def load_anon_bans():
+
     if os.path.exists(ANON_BANS_FILE):
         with open(ANON_BANS_FILE, "r") as f:
             data = json.load(f)
@@ -86,6 +88,7 @@ ANON_COOLDOWN_SECONDS = 30
 
 
 def format_time_diff(past_time: datetime) -> str:
+
     
     if past_time.tzinfo is None:
         past_time = past_time.replace(tzinfo=timezone.utc)
@@ -320,29 +323,32 @@ class RevealAuthorView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
+    def _get_entry(self, interaction: discord.Interaction):
+        return anon_log.get(str(interaction.message.id))
+
     @discord.ui.button(
-        label="Reveal & Ban Author",
-        style=discord.ButtonStyle.danger,
+        label="🔎 Reveal Author",
+        style=discord.ButtonStyle.secondary,
         custom_id="anon_reveal_button",
     )
     async def reveal_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Must be used in a guild, by a Member (not a DM/webhook), and must be a moderator.
         if interaction.guild is None or not isinstance(interaction.user, discord.Member):
             await interaction.response.send_message(
-                "This can only be used in a server.", ephemeral=True
+                "❌ This can only be used in a server.", ephemeral=True
             )
             return
 
         if not is_moderator(interaction.user):
             await interaction.response.send_message(
-                "Only big brother, ahm I mean, moderators can reveal the author of this message.", ephemeral=True
+                "❌ Only moderators can reveal the author of this message.", ephemeral=True
             )
             return
 
-        entry = anon_log.get(str(interaction.message.id))
+        entry = self._get_entry(interaction)
         if not entry:
             await interaction.response.send_message(
-                "No record found for this confession (it may predate this feature).",
+                "⚠️ No record found for this confession (it may predate this feature).",
                 ephemeral=True,
             )
             return
@@ -351,20 +357,64 @@ class RevealAuthorView(discord.ui.View):
         sent_time = entry.get("time")
         time_line = f"\n🕒 Sent: <t:{int(datetime.fromisoformat(sent_time).timestamp())}:F>" if sent_time else ""
 
-        # Pressing this button both reveals the sender AND bans them from
-        # sending future anonymous confessions in this server. Moderators can
-        # reverse a mistaken ban with <anonunban @user or <anonunban user_id.
-        newly_banned = ban_from_anon(interaction.guild.id, author_id)
-        ban_line = (
-            "\nThey have been banned from sending anonymous confessions in this server."
-            if newly_banned
-            else "\nThey were already banned from sending anonymous confessions here."
+        # Private: only the moderator who pressed the button sees who sent it.
+        await interaction.response.send_message(
+            f"This anonymous message was sent by <@{author_id}> (`{author_id}`){time_line}",
+            ephemeral=True,
         )
 
+        # Public: everyone can see that a moderator looked into this specific
+        # confession, without the author's identity being exposed.
+        await interaction.followup.send(
+            f"🔎 {interaction.user.mention} revealed the author of this confession.",
+            ephemeral=False,
+        )
+
+    @discord.ui.button(
+        label="🔨 Ban Author",
+        style=discord.ButtonStyle.danger,
+        custom_id="anon_ban_button",
+    )
+    async def ban_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.guild is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message(
+                "❌ This can only be used in a server.", ephemeral=True
+            )
+            return
+
+        if not is_moderator(interaction.user):
+            await interaction.response.send_message(
+                "❌ Only moderators can ban the author of this message.", ephemeral=True
+            )
+            return
+
+        entry = self._get_entry(interaction)
+        if not entry:
+            await interaction.response.send_message(
+                "⚠️ No record found for this confession (it may predate this feature).",
+                ephemeral=True,
+            )
+            return
+
+        author_id = entry["author_id"]
+        newly_banned = ban_from_anon(interaction.guild.id, author_id)
+        ban_line = (
+            "banned from sending anonymous confessions in this server."
+            if newly_banned
+            else "already banned from sending anonymous confessions here."
+        )
+
+       
         await interaction.response.send_message(
-            f"This anonymous message was sent by <@{author_id}> (`{author_id}`){time_line}{ban_line}\n"
+            f"🚫 <@{author_id}> (`{author_id}`) is now {ban_line}\n"
             f"-# Use `<anonunban {author_id}` if this was a mistake.",
             ephemeral=True,
+        )
+
+       
+        await interaction.followup.send(
+            f"🔨 {interaction.user.mention} banned the author of this confession from sending future ones.",
+            ephemeral=False,
         )
 
 
@@ -1458,6 +1508,8 @@ async def anon_slash(interaction: discord.Interaction, message: str):
     await interaction.response.send_message(
         f"✅ Your anonymous message was sent to {channel.mention}.", ephemeral=True
     )
+
+
 
 
 # og formated snipe commands
